@@ -70,16 +70,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============ FRONTEND STATICO (produzione) ============
-const clientDist = path.join(__dirname, '../../client/dist');
+const publicDir = path.join(__dirname, '../public');
 if (NODE_ENV === 'production') {
-  app.use(express.static(clientDist));
+  app.use(express.static(publicDir));
 }
 
 // 404 API / SPA fallback
 app.all('*', (req, res) => {
   if (NODE_ENV === 'production' && !req.path.startsWith('/api')) {
     // Tutte le route non-API → React Router gestisce
-    res.sendFile(path.join(clientDist, 'index.html'));
+    res.sendFile(path.join(publicDir, 'index.html'));
   } else {
     res.status(404).json({
       status: 'fail',
