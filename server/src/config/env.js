@@ -5,6 +5,7 @@
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 
+// MONGO_URI_STANDARD è opzionale: usala se mongodb+srv:// è bloccato dal DNS del router
 const requiredVars = ['MONGO_URI', 'JWT_SECRET', 'ENCRYPTION_KEY'];
 
 for (const varName of requiredVars) {
@@ -17,6 +18,7 @@ for (const varName of requiredVars) {
 
 module.exports = {
   MONGO_URI: process.env.MONGO_URI,
+  MONGO_URI_STANDARD: process.env.MONGO_URI_STANDARD || null,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
