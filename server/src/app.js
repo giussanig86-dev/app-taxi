@@ -23,8 +23,10 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    // Permetti tutti i sottodomini Render (*.onrender.com) in produzione
+    // Permetti *.onrender.com e *.vercel.app
     if (/^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/.test(origin)) return callback(null, true);
+    if (/^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) return callback(null, true);
+    if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -69,23 +71,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ============ FRONTEND STATICO (produzione) ============
-const clientDist = path.join(__dirname, '../../client/dist');
-if (NODE_ENV === 'production') {
-  app.use(express.static(clientDist));
-}
-
-// 404 API / SPA fallback
+// 404
 app.all('*', (req, res) => {
-  if (NODE_ENV === 'production' && !req.path.startsWith('/api')) {
-    // Tutte le route non-API → React Router gestisce
-    res.sendFile(path.join(clientDist, 'index.html'));
-  } else {
-    res.status(404).json({
-      status: 'fail',
-      messaggio: `Route ${req.originalUrl} non trovata`
-    });
-  }
+  res.status(404).json({
+    status: 'fail',
+    messaggio: `Route ${req.originalUrl} non trovata`
+  });
 });
 
 // ============ ERROR HANDLER ============
