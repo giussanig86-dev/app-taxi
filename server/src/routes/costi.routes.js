@@ -1,10 +1,21 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/costi.controller');
+const importCtrl = require('../controllers/importCosti.controller');
 const { protect, authorize } = require('../middleware/auth');
 const tenantGuard = require('../middleware/tenantGuard');
 const { validateCosto, validateObjectId } = require('../middleware/validate');
 
 router.use(protect);
+
+// Import registro IVA (solo consulente, richiede ?userId=clienteId)
+router.post('/import/preview',
+  authorize('consulente'), tenantGuard,
+  importCtrl.uploadMiddleware, importCtrl.preview
+);
+router.post('/import/confirm',
+  authorize('consulente'), tenantGuard,
+  importCtrl.confirm
+);
 
 // Route consulente-specifiche
 router.get('/da-approvare', authorize('consulente'), ctrl.daApprovare);

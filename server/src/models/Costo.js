@@ -76,7 +76,7 @@ const costoSchema = new mongoose.Schema({
   // Approvazione
   insertMode: {
     type: String,
-    enum: ['manuale', 'vocale', 'sdi_automatico'],
+    enum: ['manuale', 'vocale', 'sdi_automatico', 'import_registro_iva'],
     default: 'manuale'
   },
 
