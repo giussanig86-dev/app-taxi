@@ -180,8 +180,46 @@ export default function CorrispettiviPage() {
           description="Inizia registrando il tuo primo corrispettivo giornaliero."
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+          {/* Card layout mobile */}
+          <div className="lg:hidden space-y-2">
+            {filtered.map((c) => (
+              <div key={c._id} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-gray-500">{formatData(c.data)}</span>
+                      {c.numerazione && <span className="font-mono text-xs text-gray-400">{c.numerazione}</span>}
+                    </div>
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+                      c.metodoPagamento === 'contante' ? 'bg-green-50 text-green-700' :
+                      c.metodoPagamento === 'pos' || c.metodoPagamento === 'carta' ? 'bg-blue-50 text-blue-700' :
+                      'bg-gray-50 text-gray-700'
+                    )}>
+                      {c.metodoPagamento === 'contante' ? <Banknote className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                      {METODI_PAGAMENTO[c.metodoPagamento]}
+                    </span>
+                    {c.note && <p className="text-xs text-gray-400 mt-1 truncate">{c.note}</p>}
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="text-base font-bold text-green-600">{formatEuro(c.importo)}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setDeleteId(c._id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabella desktop */}
+          <div className="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
@@ -189,7 +227,7 @@ export default function CorrispettiviPage() {
                   <th className="px-4 py-3 font-medium">Numerazione</th>
                   <th className="px-4 py-3 font-medium">Importo</th>
                   <th className="px-4 py-3 font-medium">Metodo</th>
-                  <th className="px-4 py-3 font-medium hidden md:table-cell">Note</th>
+                  <th className="px-4 py-3 font-medium">Note</th>
                   <th className="px-4 py-3 font-medium text-right">Azioni</th>
                 </tr>
               </thead>
@@ -210,7 +248,7 @@ export default function CorrispettiviPage() {
                         {METODI_PAGAMENTO[c.metodoPagamento]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell max-w-[200px] truncate">{c.note || '-'}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{c.note || '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
@@ -226,7 +264,7 @@ export default function CorrispettiviPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal Form */}

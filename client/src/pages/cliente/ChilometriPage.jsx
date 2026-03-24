@@ -151,59 +151,104 @@ export default function ChilometriPage() {
         </div>
       </div>
 
-      {/* Tabella mesi */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium">Mese</th>
-                <th className="px-4 py-3 font-medium">Km Inizio</th>
-                <th className="px-4 py-3 font-medium">Km Fine</th>
-                <th className="px-4 py-3 font-medium">Km Personali</th>
-                <th className="px-4 py-3 font-medium">Km Lavorativi</th>
-                <th className="px-4 py-3 font-medium text-right">Azioni</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((mese) => {
-                const d = editData[mese] || {}
-                const kmTot = Math.max(0, (parseInt(d.kmFine) || 0) - (parseInt(d.kmInizio) || 0))
-                const kmLav = Math.max(0, kmTot - (parseInt(d.kmPersonali) || 0))
-                return (
-                  <tr key={mese} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 font-medium">{MESI[mese - 1]}</td>
-                    <td className="px-4 py-2">
-                      <input type="number" min="0" value={d.kmInizio}
-                        onChange={(e) => handleChange(mese, 'kmInizio', e.target.value)}
-                        className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="0" />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input type="number" min="0" value={d.kmFine}
-                        onChange={(e) => handleChange(mese, 'kmFine', e.target.value)}
-                        className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="0" />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input type="number" min="0" value={d.kmPersonali}
-                        onChange={(e) => handleChange(mese, 'kmPersonali', e.target.value)}
-                        className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        placeholder="0" />
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-primary">{formatNumero(kmLav)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => handleSave(mese)} disabled={saving}
-                        className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50">
-                        <Save className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* Card mesi — mobile */}
+      <div className="lg:hidden space-y-2">
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((mese) => {
+          const d = editData[mese] || {}
+          const kmTot = Math.max(0, (parseInt(d.kmFine) || 0) - (parseInt(d.kmInizio) || 0))
+          const kmLav = Math.max(0, kmTot - (parseInt(d.kmPersonali) || 0))
+          return (
+            <div key={mese} className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-semibold text-sm">{MESI[mese - 1]}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Km lav:</span>
+                  <span className="text-sm font-bold text-primary">{formatNumero(kmLav)}</span>
+                  <button onClick={() => handleSave(mese)} disabled={saving}
+                    className="ml-1 p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50">
+                    <Save className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Km Inizio</label>
+                  <input type="number" min="0" value={d.kmInizio}
+                    onChange={(e) => handleChange(mese, 'kmInizio', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Km Fine</label>
+                  <input type="number" min="0" value={d.kmFine}
+                    onChange={(e) => handleChange(mese, 'kmFine', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Km Personali</label>
+                  <input type="number" min="0" value={d.kmPersonali}
+                    onChange={(e) => handleChange(mese, 'kmPersonali', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="0" />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Tabella mesi — desktop */}
+      <div className="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600 text-left">
+            <tr>
+              <th className="px-4 py-3 font-medium">Mese</th>
+              <th className="px-4 py-3 font-medium">Km Inizio</th>
+              <th className="px-4 py-3 font-medium">Km Fine</th>
+              <th className="px-4 py-3 font-medium">Km Personali</th>
+              <th className="px-4 py-3 font-medium">Km Lavorativi</th>
+              <th className="px-4 py-3 font-medium text-right">Azioni</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((mese) => {
+              const d = editData[mese] || {}
+              const kmTot = Math.max(0, (parseInt(d.kmFine) || 0) - (parseInt(d.kmInizio) || 0))
+              const kmLav = Math.max(0, kmTot - (parseInt(d.kmPersonali) || 0))
+              return (
+                <tr key={mese} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-3 font-medium">{MESI[mese - 1]}</td>
+                  <td className="px-4 py-2">
+                    <input type="number" min="0" value={d.kmInizio}
+                      onChange={(e) => handleChange(mese, 'kmInizio', e.target.value)}
+                      className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="0" />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input type="number" min="0" value={d.kmFine}
+                      onChange={(e) => handleChange(mese, 'kmFine', e.target.value)}
+                      className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="0" />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input type="number" min="0" value={d.kmPersonali}
+                      onChange={(e) => handleChange(mese, 'kmPersonali', e.target.value)}
+                      className="w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="0" />
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-primary">{formatNumero(kmLav)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => handleSave(mese)} disabled={saving}
+                      className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50">
+                      <Save className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div className="flex justify-end">

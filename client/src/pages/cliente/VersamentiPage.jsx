@@ -20,7 +20,7 @@ const INITIAL_FORM = {
 }
 
 export default function VersamentiPage() {
-  const { anno } = useOutletContext()
+  const { anno, refreshKey } = useOutletContext()
   const [versamenti, setVersamenti] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -32,7 +32,7 @@ export default function VersamentiPage() {
 
   useEffect(() => {
     fetchData()
-  }, [anno])
+  }, [anno, refreshKey])
 
   async function fetchData() {
     setLoading(true)

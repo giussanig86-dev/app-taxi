@@ -23,7 +23,7 @@ const INITIAL_FORM = {
 }
 
 export default function CostiPage() {
-  const { anno } = useOutletContext()
+  const { anno, refreshKey } = useOutletContext()
   const [costi, setCosti] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -37,7 +37,7 @@ export default function CostiPage() {
 
   useEffect(() => {
     fetchData()
-  }, [anno])
+  }, [anno, refreshKey])
 
   async function fetchData() {
     setLoading(true)
@@ -196,8 +196,47 @@ export default function CostiPage() {
       {filtered.length === 0 ? (
         <EmptyState icon={Receipt} title="Nessun costo" description="Inizia registrando la tua prima spesa." />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+          {/* Card layout mobile */}
+          <div className="lg:hidden space-y-2">
+            {filtered.map((c) => (
+              <div key={c._id} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CATEGORIE_COSTI[c.categoria]?.color }} />
+                        {CATEGORIE_COSTI[c.categoria]?.label || c.categoria}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatData(c.data)}</span>
+                    </div>
+                    <p className="text-sm font-medium truncate">{c.descrizione || '-'}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                        {statoIcon(c.statoApprovazione)}
+                        {statoLabel(c.statoApprovazione)}
+                      </span>
+                      {c.fornitore && <span className="text-xs text-gray-400 truncate">{c.fornitore}</span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="text-base font-bold text-red-600">{formatEuro(c.importo)}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setDeleteId(c._id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabella desktop */}
+          <div className="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
@@ -206,7 +245,7 @@ export default function CostiPage() {
                   <th className="px-4 py-3 font-medium">Descrizione</th>
                   <th className="px-4 py-3 font-medium">Importo</th>
                   <th className="px-4 py-3 font-medium">Stato</th>
-                  <th className="px-4 py-3 font-medium hidden md:table-cell">Fornitore</th>
+                  <th className="px-4 py-3 font-medium">Fornitore</th>
                   <th className="px-4 py-3 font-medium text-right">Azioni</th>
                 </tr>
               </thead>
@@ -228,7 +267,7 @@ export default function CostiPage() {
                         {statoLabel(c.statoApprovazione)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{c.fornitore || '-'}</td>
+                    <td className="px-4 py-3 text-gray-500">{c.fornitore || '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
@@ -244,7 +283,7 @@ export default function CostiPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal Form */}

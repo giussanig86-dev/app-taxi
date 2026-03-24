@@ -174,8 +174,48 @@ export default function FatturePage() {
           description="Inizia creando la tua prima fattura attiva."
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+          {/* Card layout mobile */}
+          <div className="lg:hidden space-y-2">
+            {filtered.map((f) => (
+              <div key={f._id} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs font-semibold text-gray-700">{f.numero}</span>
+                      <StatusBadge status={f.statoSdi} type="sdi" />
+                    </div>
+                    <p className="text-sm font-medium truncate">{f.cliente?.denominazione || '-'}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{formatData(f.data)}</p>
+                    <div className="mt-1.5">
+                      {f.pagata ? (
+                        <span className="text-green-600 text-xs font-medium">✓ Pagata</span>
+                      ) : (
+                        <button onClick={() => marcaPagata(f._id)}
+                          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5" /> Marca pagata
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="text-base font-bold text-gray-800">{formatEuro(f.importoNetto)}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => openEdit(f)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setDeleteId(f._id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabella desktop */}
+          <div className="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
@@ -184,7 +224,7 @@ export default function FatturePage() {
                   <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Importo</th>
                   <th className="px-4 py-3 font-medium">Stato SDI</th>
-                  <th className="px-4 py-3 font-medium hidden md:table-cell">Pagata</th>
+                  <th className="px-4 py-3 font-medium">Pagata</th>
                   <th className="px-4 py-3 font-medium text-right">Azioni</th>
                 </tr>
               </thead>
@@ -195,17 +235,13 @@ export default function FatturePage() {
                     <td className="px-4 py-3">{formatData(f.data)}</td>
                     <td className="px-4 py-3 font-medium">{f.cliente?.denominazione || '-'}</td>
                     <td className="px-4 py-3 font-semibold">{formatEuro(f.importoNetto)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={f.statoSdi} type="sdi" /></td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={f.statoSdi} type="sdi" />
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
                       {f.pagata ? (
                         <span className="text-green-600 text-xs font-medium">✓ Pagata</span>
                       ) : (
-                        <button
-                          onClick={() => marcaPagata(f._id)}
-                          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
-                        >
+                        <button onClick={() => marcaPagata(f._id)}
+                          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
                           <CheckCircle className="w-3.5 h-3.5" /> Marca pagata
                         </button>
                       )}
@@ -225,7 +261,7 @@ export default function FatturePage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal Form */}

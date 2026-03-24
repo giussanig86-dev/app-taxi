@@ -20,12 +20,19 @@ exports.dashboardCliente = catchAsync(async (req, res) => {
 
   const user = await User.findById(userId);
   const ricavoLordo = totaleCorrispettivi.totale + totaleFatture.totale;
-  const stima = calcoloFiscale.calcolaForfettario({
-    ricavoLordo,
-    coefficienteRedditivita: user.coefficienteRedditivita,
-    aliquotaForfettaria: user.aliquotaForfettaria,
-    aliquotaINPS: user.aliquotaINPS
-  });
+
+  const stima = user.regimeFiscale === 'ordinario'
+    ? calcoloFiscale.calcolaOrdinario({
+        ricavoLordo,
+        totaleCosti: totaleCosti.totale,
+        aliquotaINPS: user.aliquotaINPS,
+      })
+    : calcoloFiscale.calcolaForfettario({
+        ricavoLordo,
+        coefficienteRedditivita: user.coefficienteRedditivita,
+        aliquotaForfettaria: user.aliquotaForfettaria,
+        aliquotaINPS: user.aliquotaINPS,
+      });
 
   res.status(200).json({
     status: 'success',
@@ -36,6 +43,7 @@ exports.dashboardCliente = catchAsync(async (req, res) => {
         totaleFatture: totaleFatture.totale,
         totaleCosti: totaleCosti.totale,
         ricavoLordo,
+        regimeFiscale: user.regimeFiscale || 'forfettario',
         ...stima
       },
       andamentoMensile, breakdownMetodiPagamento: breakdownMetodi, breakdownCosti,
