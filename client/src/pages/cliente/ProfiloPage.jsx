@@ -95,7 +95,7 @@ export default function ProfiloPage() {
         payload.coefficienteRedditivita = datiFiscali.coefficienteRedditivita / 100
         payload.aliquotaForfettaria = datiFiscali.aliquotaForfettaria / 100
       }
-      await api.put('/users/profilo/dati-fiscali', payload)
+      await api.put('/users/profilo/fiscale', payload)
       setSuccess('Dati fiscali aggiornati')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
