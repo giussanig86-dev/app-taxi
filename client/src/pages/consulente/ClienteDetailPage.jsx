@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, User, TrendingUp, Receipt, FileText, Landmark, Car, Calculator, Clock } from 'lucide-react'
+import { ArrowLeft, User, TrendingUp, Receipt, FileText, Landmark, Car, Calculator, Clock, Upload } from 'lucide-react'
+import ImportRegistroIvaModal from '@/components/shared/ImportRegistroIvaModal'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
 import { formatEuro, formatData, cn, MESI } from '@/lib/utils'
@@ -17,6 +18,7 @@ export default function ClienteDetailPage() {
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('panoramica')
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -168,6 +170,16 @@ export default function ClienteDetailPage() {
       {/* Tab Costi */}
       {activeTab === 'costi' && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <span className="text-sm font-medium text-gray-700">Costi</span>
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Importa Registro IVA
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
@@ -271,6 +283,15 @@ export default function ClienteDetailPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <ImportRegistroIvaModal
+          clienteId={id}
+          anno={anno}
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); fetchData() }}
+        />
       )}
     </div>
   )
