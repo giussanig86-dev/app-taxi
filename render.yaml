@@ -2,9 +2,9 @@ services:
   - type: web
     name: app-taxi
     runtime: node
-    rootDir: .
-    buildCommand: npm install && npm run build
-    startCommand: node server/src/seed/init-database.js; node server/src/server.js
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node src/seed/init-database.js; node src/server.js
     envVars:
       - key: NODE_ENV
         value: production
