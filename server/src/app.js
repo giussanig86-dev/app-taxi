@@ -6,6 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { FRONTEND_URL, NODE_ENV } = require('./config/env');
 const errorHandler = require('./middleware/errorHandler');
@@ -68,12 +69,23 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 per route non trovate
+// ============ FRONTEND STATICO (produzione) ============
+const clientDist = path.join(__dirname, '../../client/dist');
+if (NODE_ENV === 'production') {
+  app.use(express.static(clientDist));
+}
+
+// 404 API / SPA fallback
 app.all('*', (req, res) => {
-  res.status(404).json({
-    status: 'fail',
-    messaggio: `Route ${req.originalUrl} non trovata`
-  });
+  if (NODE_ENV === 'production' && !req.path.startsWith('/api')) {
+    // Tutte le route non-API → React Router gestisce
+    res.sendFile(path.join(clientDist, 'index.html'));
+  } else {
+    res.status(404).json({
+      status: 'fail',
+      messaggio: `Route ${req.originalUrl} non trovata`
+    });
+  }
 });
 
 // ============ ERROR HANDLER ============
