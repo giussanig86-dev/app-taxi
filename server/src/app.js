@@ -17,8 +17,12 @@ const app = express();
 app.use(helmet());
 
 // CORS
+const allowedOrigins = FRONTEND_URL.split(',').map(o => o.trim());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
