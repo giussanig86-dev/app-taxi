@@ -3,7 +3,7 @@ services:
     name: app-taxi-backend
     runtime: node
     rootDir: server
-    buildCommand: npm install
+    buildCommand: npm install && node src/seed/init-database.js
     startCommand: npm start
     envVars:
       - key: NODE_ENV
