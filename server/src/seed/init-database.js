@@ -32,6 +32,14 @@ async function initializeDatabase() {
       console.log('\u2705 Database cancellato\n');
     }
 
+    // Controlla se il database è già inizializzato
+    const esistenti = await User.countDocuments();
+    if (esistenti > 0) {
+      console.log('\u2139\uFE0F  Database già inizializzato, seed saltato.\n');
+      await mongoose.disconnect();
+      process.exit(0);
+    }
+
     // Crea utenti
     console.log('\u{1F331} Creazione utenti...');
 

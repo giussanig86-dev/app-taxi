@@ -17,8 +17,15 @@ const app = express();
 app.use(helmet());
 
 // CORS
+const allowedOrigins = FRONTEND_URL.split(',').map(o => o.trim());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Permetti tutti i sottodomini Render (*.onrender.com) in produzione
+    if (/^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/.test(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
