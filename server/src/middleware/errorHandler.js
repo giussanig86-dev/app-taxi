@@ -62,7 +62,8 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Errore sconosciuto
-  console.error('\u274C ERRORE:', err);
+  console.error('❌ ERRORE non gestito:', err.name, '-', err.message);
+  console.error(err.stack);
 
   res.status(500).json({
     status: 'error',
