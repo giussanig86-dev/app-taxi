@@ -62,7 +62,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Stima Imposta"
-          value={formatEuro(r.impostaSostitutiva)}
+          value={formatEuro(r.regimeFiscale === 'ordinario' ? r.irpefLorda : r.impostaSostitutiva)}
           subtitle={`Aliquota eff. ${r.aliquotaEffettiva || 0}%`}
           icon={Calculator}
         />
@@ -161,33 +161,79 @@ export default function DashboardPage() {
           <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
             <Calculator className="w-4 h-4" />
             Dettaglio Calcolo Fiscale
+            <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full ${r.regimeFiscale === 'ordinario' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+              {r.regimeFiscale === 'ordinario' ? 'Ordinario' : 'Forfettario'}
+            </span>
           </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b border-border">
-              <span className="text-text-secondary">Ricavo lordo</span>
-              <span className="font-medium">{formatEuro(r.ricavoLordo)}</span>
+
+          {r.regimeFiscale === 'ordinario' ? (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Ricavo lordo</span>
+                <span className="font-medium">{formatEuro(r.ricavoLordo)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Costi deducibili</span>
+                <span className="font-medium text-danger">- {formatEuro(r.totaleCosti)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Reddito lordo</span>
+                <span className="font-medium">{formatEuro(r.redditoLordo)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Contributi INPS (24,48%)</span>
+                <span className="font-medium text-danger">- {formatEuro(r.contributiINPS)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Reddito imponibile IRPEF</span>
+                <span className="font-medium">{formatEuro(r.redditoImponibile)}</span>
+              </div>
+              {(r.dettaglioScaglioni || []).map((s, i) => (
+                <div key={i} className="flex justify-between py-1.5 border-b border-dashed border-gray-100 text-xs">
+                  <span className="text-text-secondary pl-3">
+                    Scaglione {(s.aliquota * 100).toFixed(0)}% ({formatEuro(s.da)} – {s.a >= 1e9 ? '∞' : formatEuro(s.a)})
+                  </span>
+                  <span className="text-danger">{formatEuro(s.imposta)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">IRPEF lorda</span>
+                <span className="font-medium text-danger">{formatEuro(r.irpefLorda)}</span>
+              </div>
+              <div className="flex justify-between py-2 bg-green-50 -mx-5 px-5 rounded-lg">
+                <span className="font-semibold text-success">Netto stimato</span>
+                <span className="font-bold text-success">{formatEuro(r.nettoStimato)}</span>
+              </div>
             </div>
-            <div className="flex justify-between py-2 border-b border-border">
-              <span className="text-text-secondary">Reddito imponibile (67%)</span>
-              <span className="font-medium">{formatEuro(r.redditoImponibile)}</span>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Ricavo lordo</span>
+                <span className="font-medium">{formatEuro(r.ricavoLordo)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Reddito imponibile (67%)</span>
+                <span className="font-medium">{formatEuro(r.redditoImponibile)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Contributi INPS (24,48%)</span>
+                <span className="font-medium text-danger">{formatEuro(r.contributiINPS)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Base imponibile fiscale</span>
+                <span className="font-medium">{formatEuro(r.baseImponibileFiscale)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span className="text-text-secondary">Imposta sostitutiva</span>
+                <span className="font-medium text-danger">{formatEuro(r.impostaSostitutiva)}</span>
+              </div>
+              <div className="flex justify-between py-2 bg-green-50 -mx-5 px-5 rounded-lg">
+                <span className="font-semibold text-success">Netto stimato</span>
+                <span className="font-bold text-success">{formatEuro(r.nettoStimato)}</span>
+              </div>
             </div>
-            <div className="flex justify-between py-2 border-b border-border">
-              <span className="text-text-secondary">Contributi INPS (24,48%)</span>
-              <span className="font-medium text-danger">{formatEuro(r.contributiINPS)}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-border">
-              <span className="text-text-secondary">Base imponibile fiscale</span>
-              <span className="font-medium">{formatEuro(r.baseImponibileFiscale)}</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-border">
-              <span className="text-text-secondary">Imposta sostitutiva (15%)</span>
-              <span className="font-medium text-danger">{formatEuro(r.impostaSostitutiva)}</span>
-            </div>
-            <div className="flex justify-between py-2 bg-green-50 -mx-5 px-5 rounded-lg">
-              <span className="font-semibold text-success">Netto stimato</span>
-              <span className="font-bold text-success">{formatEuro(r.nettoStimato)}</span>
-            </div>
-          </div>
+          )}
+
 
           {/* Alert scaduti */}
           {(d.versamentiScaduti || []).length > 0 && (

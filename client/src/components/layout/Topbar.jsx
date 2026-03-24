@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { Menu, LogOut, User, ChevronDown } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Menu, LogOut, User, ChevronDown, LayoutDashboard } from 'lucide-react'
+import { useNavigate, NavLink } from 'react-router-dom'
 
 export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
-  const { user, logout } = useAuth()
+  const { user, logout, isCliente } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -18,7 +18,7 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-border px-4 lg:px-6">
-      <div className="flex items-center justify-between h-14">
+      <div className="flex items-center justify-between h-14 relative">
         {/* Left: menu button + year selector */}
         <div className="flex items-center gap-4">
           <button
@@ -42,6 +42,22 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
             </select>
           </div>
         </div>
+
+        {/* Center: home icon (solo cliente, solo mobile) */}
+        {isCliente && (
+          <NavLink
+            to="/dashboard"
+            end
+            className={({ isActive }) =>
+              `absolute left-1/2 -translate-x-1/2 lg:hidden p-2 rounded-lg transition-colors ${
+                isActive ? 'text-primary bg-primary/5' : 'text-text-secondary hover:bg-gray-100'
+              }`
+            }
+            title="Dashboard"
+          >
+            <LayoutDashboard className="w-5 h-5" />
+          </NavLink>
+        )}
 
         {/* Right: user menu */}
         <div className="relative">

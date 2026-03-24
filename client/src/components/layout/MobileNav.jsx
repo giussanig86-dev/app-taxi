@@ -1,21 +1,21 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  LayoutDashboard, Receipt, Wallet, FileText, MoreHorizontal,
-  Users, CheckSquare
+  Receipt, FileText, Wallet, Car, Landmark,
+  Users, CheckSquare, MoreHorizontal
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const clienteTabs = [
-  { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { to: '/corrispettivi', label: 'Incassi', icon: Receipt },
   { to: '/fatture', label: 'Fatture', icon: FileText },
   { to: '/costi', label: 'Costi', icon: Wallet },
-  { to: '/versamenti', label: 'Altro', icon: MoreHorizontal },
+  { to: '/chilometri', label: 'Km', icon: Car },
+  { to: '/versamenti', label: 'Versamenti', icon: Landmark },
 ]
 
 const consulenteTabs = [
-  { to: '/consulente', label: 'Home', icon: LayoutDashboard },
+  { to: '/consulente', label: 'Home', icon: Users },
   { to: '/consulente/clienti', label: 'Clienti', icon: Users },
   { to: '/consulente/approvazioni', label: 'Approva', icon: CheckSquare },
   { to: '/consulente/impostazioni', label: 'Altro', icon: MoreHorizontal },
@@ -34,16 +34,16 @@ export default function MobileNav() {
             <NavLink
               key={tab.to}
               to={tab.to}
-              end={tab.to === '/dashboard' || tab.to === '/consulente'}
+              end={tab.to === '/consulente'}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[60px]',
+                  'flex flex-col items-center gap-0.5 px-2 py-1.5 min-w-[52px]',
                   isActive ? 'text-primary' : 'text-text-secondary'
                 )
               }
             >
               <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[9px] font-medium leading-none">{tab.label}</span>
             </NavLink>
           )
         })}

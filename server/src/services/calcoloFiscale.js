@@ -89,4 +89,53 @@ const calcolaIRPEF = ({ redditoImponibile = 0, scaglioni = [] }) => {
   };
 };
 
-module.exports = { calcolaForfettario, calcolaIRPEF };
+// Scaglioni IRPEF vigenti (2024-2025)
+const SCAGLIONI_IRPEF = [
+  { limite_superiore: 28000, aliquota: 0.23 },
+  { limite_superiore: 50000, aliquota: 0.35 },
+  { limite_superiore: Infinity, aliquota: 0.43 },
+];
+
+/**
+ * Calcolo Regime Ordinario
+ * Reddito imponibile = ricavi - costi; IRPEF per scaglioni progressivi
+ */
+const calcolaOrdinario = ({
+  ricavoLordo = 0,
+  totaleCosti = 0,
+  aliquotaINPS = 0.2448,
+}) => {
+  // 1. Reddito al lordo dei contributi
+  const redditoLordo = Math.max(0, ricavoLordo - totaleCosti);
+
+  // 2. Contributi INPS (deducibili)
+  const contributiINPS = redditoLordo * aliquotaINPS;
+
+  // 3. Reddito imponibile IRPEF (al netto INPS, senza altre detrazioni)
+  const redditoImponibile = Math.max(0, redditoLordo - contributiINPS);
+
+  // 4. IRPEF lorda per scaglioni
+  const { irpefLorda, dettaglioScaglioni } = calcolaIRPEF({
+    redditoImponibile,
+    scaglioni: SCAGLIONI_IRPEF,
+  });
+
+  // 5. Netto stimato
+  const totaleImposteContributi = irpefLorda + contributiINPS;
+  const nettoStimato = ricavoLordo - totaleImposteContributi;
+
+  return {
+    redditoLordo: Math.round(redditoLordo * 100) / 100,
+    contributiINPS: Math.round(contributiINPS * 100) / 100,
+    redditoImponibile: Math.round(redditoImponibile * 100) / 100,
+    irpefLorda: Math.round(irpefLorda * 100) / 100,
+    dettaglioScaglioni,
+    totaleImposteContributi: Math.round(totaleImposteContributi * 100) / 100,
+    nettoStimato: Math.round(nettoStimato * 100) / 100,
+    aliquotaEffettiva: ricavoLordo > 0
+      ? Math.round((totaleImposteContributi / ricavoLordo) * 10000) / 100
+      : 0,
+  };
+};
+
+module.exports = { calcolaForfettario, calcolaIRPEF, calcolaOrdinario };

@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Save, User, Shield, Calculator } from 'lucide-react'
+import { Save, User, Shield, Calculator, Info } from 'lucide-react'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import { useAuth } from '@/hooks/useAuth'
+
+// Scaglioni IRPEF 2024-2025 (info display)
+const SCAGLIONI_IRPEF = [
+  { da: 0, a: 28000, aliquota: 23 },
+  { da: 28001, a: 50000, aliquota: 35 },
+  { da: 50001, a: null, aliquota: 43 },
+]
 
 export default function ProfiloPage() {
   const { user, updateUser } = useAuth()
@@ -20,13 +27,9 @@ export default function ProfiloPage() {
   })
   const [datiFiscali, setDatiFiscali] = useState({
     regimeFiscale: 'forfettario',
-    coefficienteRedditività: 67,
-    annoInizioAttività: '',
-    aliquotaSostitutiva: 15,
-    partitaIva: '',
-    codiceFiscale: '',
-    codiceAteco: '',
-    indirizzoStudio: '',
+    coefficienteRedditivita: 67,   // visualizzato come %, salvato /100
+    aliquotaForfettaria: 15,       // visualizzato come %, salvato /100
+    aliquotaINPS: 24.48,           // visualizzato come %, salvato /100
   })
   const [passwordForm, setPasswordForm] = useState({
     passwordAttuale: '',
@@ -50,14 +53,10 @@ export default function ProfiloPage() {
         telefono: u.telefono || '',
       })
       setDatiFiscali({
-        regimeFiscale: u.datiFiscali?.regimeFiscale || 'forfettario',
-        coefficienteRedditività: u.datiFiscali?.coefficienteRedditività || 67,
-        annoInizioAttività: u.datiFiscali?.annoInizioAttività || '',
-        aliquotaSostitutiva: u.datiFiscali?.aliquotaSostitutiva || 15,
-        partitaIva: u.partitaIva || '',
-        codiceFiscale: u.codiceFiscale || '',
-        codiceAteco: u.datiFiscali?.codiceAteco || '',
-        indirizzoStudio: u.datiFiscali?.indirizzoStudio || '',
+        regimeFiscale: u.regimeFiscale || 'forfettario',
+        coefficienteRedditivita: Math.round((u.coefficienteRedditivita ?? 0.67) * 100),
+        aliquotaForfettaria: Math.round((u.aliquotaForfettaria ?? 0.15) * 100),
+        aliquotaINPS: Math.round((u.aliquotaINPS ?? 0.2448) * 10000) / 100,
       })
     } catch (err) {
       console.error('Errore caricamento profilo:', err)
@@ -76,7 +75,7 @@ export default function ProfiloPage() {
       setSuccess('Profilo aggiornato')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Errore salvataggio')
+      alert(err.response?.data?.messaggio || err.response?.data?.message || 'Errore salvataggio')
     } finally {
       setSaving(false)
     }
@@ -87,11 +86,20 @@ export default function ProfiloPage() {
     setSaving(true)
     setSuccess('')
     try {
-      await api.put('/users/profilo/dati-fiscali', datiFiscali)
+      // Converte da % a decimale prima di inviare
+      const payload = {
+        regimeFiscale: datiFiscali.regimeFiscale,
+        aliquotaINPS: datiFiscali.aliquotaINPS / 100,
+      }
+      if (datiFiscali.regimeFiscale === 'forfettario') {
+        payload.coefficienteRedditivita = datiFiscali.coefficienteRedditivita / 100
+        payload.aliquotaForfettaria = datiFiscali.aliquotaForfettaria / 100
+      }
+      await api.put('/users/profilo/dati-fiscali', payload)
       setSuccess('Dati fiscali aggiornati')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Errore salvataggio')
+      alert(err.response?.data?.messaggio || err.response?.data?.message || 'Errore salvataggio')
     } finally {
       setSaving(false)
     }
@@ -114,7 +122,7 @@ export default function ProfiloPage() {
       setSuccess('Password aggiornata')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Errore cambio password')
+      alert(err.response?.data?.messaggio || err.response?.data?.message || 'Errore cambio password')
     } finally {
       setSaving(false)
     }
@@ -125,6 +133,8 @@ export default function ProfiloPage() {
     { key: 'fiscale', label: 'Dati Fiscali', icon: Calculator },
     { key: 'sicurezza', label: 'Sicurezza', icon: Shield },
   ]
+
+  const isForfettario = datiFiscali.regimeFiscale === 'forfettario'
 
   if (loading) return <LoadingSpinner />
 
@@ -190,6 +200,7 @@ export default function ProfiloPage() {
       {/* Tab Fiscale */}
       {activeTab === 'fiscale' && (
         <form onSubmit={handleSaveFiscale} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4 max-w-lg">
+          {/* Regime Fiscale */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Regime Fiscale</label>
             <select value={datiFiscali.regimeFiscale}
@@ -199,41 +210,70 @@ export default function ProfiloPage() {
               <option value="ordinario">Ordinario</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Coefficiente Redditività %</label>
-              <input type="number" min="0" max="100" value={datiFiscali.coefficienteRedditività}
-                onChange={(e) => setDatiFiscali({ ...datiFiscali, coefficienteRedditività: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+
+          {/* Campi solo forfettario */}
+          {isForfettario && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Coefficiente Redditività %</label>
+                <input type="number" min="0" max="100" value={datiFiscali.coefficienteRedditivita}
+                  onChange={(e) => setDatiFiscali({ ...datiFiscali, coefficienteRedditivita: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                <p className="text-xs text-gray-400 mt-1">67% per i tassisti</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Aliquota Sostitutiva %</label>
+                <select value={datiFiscali.aliquotaForfettaria}
+                  onChange={(e) => setDatiFiscali({ ...datiFiscali, aliquotaForfettaria: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <option value={5}>5% (primi 5 anni)</option>
+                  <option value={15}>15%</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Aliquota Sostitutiva %</label>
-              <select value={datiFiscali.aliquotaSostitutiva}
-                onChange={(e) => setDatiFiscali({ ...datiFiscali, aliquotaSostitutiva: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                <option value={5}>5% (primi 5 anni)</option>
-                <option value={15}>15%</option>
-              </select>
+          )}
+
+          {/* Aliquota INPS - sempre visibile */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Aliquota INPS %</label>
+            <input type="number" min="0" max="100" step="0.01" value={datiFiscali.aliquotaINPS}
+              onChange={(e) => setDatiFiscali({ ...datiFiscali, aliquotaINPS: parseFloat(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            <p className="text-xs text-gray-400 mt-1">Default 24,48% (gestione separata INPS)</p>
+          </div>
+
+          {/* Info IRPEF ordinario */}
+          {!isForfettario && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-purple-700 font-medium text-sm">
+                <Info className="w-4 h-4" />
+                Calcolo IRPEF — Scaglioni 2024-2025
+              </div>
+              <p className="text-xs text-purple-600">
+                Nel regime ordinario l'IRPEF è calcolata per scaglioni progressivi sul reddito imponibile
+                (ricavi – costi – contributi INPS deducibili).
+              </p>
+              <div className="space-y-1">
+                {SCAGLIONI_IRPEF.map((s, i) => (
+                  <div key={i} className="flex justify-between text-xs text-purple-700 bg-white rounded px-3 py-1.5">
+                    <span>
+                      {s.da === 0 ? 'fino a' : `da €${s.da.toLocaleString('it-IT')} a`}{' '}
+                      {s.a ? `€${s.a.toLocaleString('it-IT')}` : 'oltre'}
+                    </span>
+                    <span className="font-semibold">{s.aliquota}%</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-purple-500">
+                Il calcolo esatto nella Dashboard tiene conto di ricavi, costi e contributi INPS dell'anno selezionato.
+              </p>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Anno Inizio Attività</label>
-            <input type="number" min="1990" max="2030" value={datiFiscali.annoInizioAttività}
-              onChange={(e) => setDatiFiscali({ ...datiFiscali, annoInizioAttività: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              placeholder="Es. 2020" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Codice ATECO</label>
-            <input type="text" value={datiFiscali.codiceAteco}
-              onChange={(e) => setDatiFiscali({ ...datiFiscali, codiceAteco: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              placeholder="49.32.10 (Taxi)" />
-          </div>
+          )}
+
           <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3">
             <strong>Nota:</strong> P.IVA e Codice Fiscale sono crittografati e gestiti dal consulente.
-            Il coefficiente di redditività per i tassisti in regime forfettario è generalmente il 67%.
           </p>
+
           <button type="submit" disabled={saving}
             className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
             <Save className="w-4 h-4" />{saving ? 'Salvataggio...' : 'Salva Dati Fiscali'}
