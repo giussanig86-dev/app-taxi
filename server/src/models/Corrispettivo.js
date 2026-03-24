@@ -60,7 +60,7 @@ const corrispettivoSchema = new mongoose.Schema({
   // Tracking
   insertMode: {
     type: String,
-    enum: ['manuale', 'vocale', 'pos_automatico'],
+    enum: ['manuale', 'vocale', 'pos_automatico', 'import_registro_corrispettivi'],
     default: 'manuale',
     required: true
   },
