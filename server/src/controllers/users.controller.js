@@ -8,7 +8,7 @@ exports.getProfilo = catchAsync(async (req, res) => {
 });
 
 exports.updateProfilo = catchAsync(async (req, res) => {
-  const campiPermessi = ['nome', 'cognome', 'telefono', 'indirizzo'];
+  const campiPermessi = ['nome', 'cognome', 'telefono', 'indirizzo', 'codiceCliente'];
   const updates = {};
   campiPermessi.forEach(campo => {
     if (req.body[campo] !== undefined) updates[campo] = req.body[campo];
@@ -46,9 +46,18 @@ exports.getCliente = catchAsync(async (req, res, next) => {
 });
 
 exports.updateCliente = catchAsync(async (req, res, next) => {
+  const campiPermessi = [
+    'nome', 'cognome', 'email', 'telefono', 'indirizzo',
+    'codiceCliente', 'codiceFiscale', 'partitaIva',
+    'regimeFiscale', 'coefficienteRedditivita', 'aliquotaForfettaria', 'aliquotaINPS'
+  ];
+  const updates = {};
+  campiPermessi.forEach(campo => {
+    if (req.body[campo] !== undefined) updates[campo] = req.body[campo];
+  });
   const cliente = await User.findOneAndUpdate(
     { _id: req.params.id, consulenteId: req.user._id, ruolo: 'cliente' },
-    req.body, { new: true, runValidators: true }
+    updates, { new: true, runValidators: true }
   );
   if (!cliente) return next(new AppError('Cliente non trovato.', 404));
   res.status(200).json({ status: 'success', data: { cliente } });

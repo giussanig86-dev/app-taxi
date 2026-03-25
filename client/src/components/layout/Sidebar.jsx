@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   LayoutDashboard, Receipt, FileText, Wallet, Calendar,
-  Gauge, User, Users, CheckSquare, Settings, X, Car, ShieldCheck
+  Gauge, User, Users, CheckSquare, Settings, X, Car, ShieldCheck, Upload
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,7 @@ const clienteLinks = [
 const consulenteLinks = [
   { to: '/consulente',               label: 'Dashboard',    icon: LayoutDashboard },
   { to: '/consulente/clienti',       label: 'Clienti',      icon: Users },
+  { to: '/consulente/import-batch',  label: 'Import Batch', icon: Upload },
   { to: '/consulente/approvazioni',  label: 'Approvazioni', icon: CheckSquare },
   { to: '/consulente/impostazioni',  label: 'Impostazioni', icon: Settings },
 ]

@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, TrendingUp, Receipt, FileText, Landmark,
   Calculator, Plus, Trash2, Edit3, Upload, CheckCircle,
-  FolderOpen, Download, FileSpreadsheet, Image, AlertCircle, ChevronDown
+  FolderOpen, Download, FileSpreadsheet, Image, AlertCircle, ChevronDown,
+  Save, User
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
@@ -45,6 +46,11 @@ export default function ClienteDetailPage() {
   const [editingVersamento, setEditingVersamento] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
+  // Anagrafica edit
+  const [anagraficaForm, setAnagraficaForm] = useState(null)
+  const [savingAnagrafica, setSavingAnagrafica] = useState(false)
+  const [anagraficaSuccess, setAnagraficaSuccess] = useState('')
+
   // Documenti
   const [documenti, setDocumenti] = useState(null)
   const [docUploading, setDocUploading] = useState(false)
@@ -81,8 +87,18 @@ export default function ClienteDetailPage() {
         api.get(`/users/clienti/${id}`),
         api.get('/dashboard/cliente', { params: { anno, userId: id } }),
       ])
-      setCliente(clienteRes.data.data)
+      const c = clienteRes.data.data
+      setCliente(c)
       setDashboard(dashRes.data.data)
+      setAnagraficaForm({
+        nome: c.nome || '',
+        cognome: c.cognome || '',
+        email: c.email || '',
+        telefono: c.telefono || '',
+        codiceCliente: c.codiceCliente || '',
+        codiceFiscale: c.codiceFiscale || '',
+        partitaIva: c.partitaIva || '',
+      })
     } catch (err) {
       console.error('Errore caricamento cliente:', err)
     } finally {
@@ -317,6 +333,22 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
     win.document.close()
   }
 
+  async function handleSaveAnagrafica(e) {
+    e.preventDefault()
+    setSavingAnagrafica(true)
+    setAnagraficaSuccess('')
+    try {
+      const res = await api.put(`/users/clienti/${id}`, anagraficaForm)
+      setCliente(res.data.data.cliente)
+      setAnagraficaSuccess('Dati aggiornati')
+      setTimeout(() => setAnagraficaSuccess(''), 3000)
+    } catch (err) {
+      alert(err.response?.data?.messaggio || err.response?.data?.message || 'Errore salvataggio')
+    } finally {
+      setSavingAnagrafica(false)
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     try {
@@ -353,6 +385,7 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
 
   const tabs = [
     { key: 'panoramica',    label: 'Panoramica',    icon: TrendingUp },
+    { key: 'anagrafica',    label: 'Anagrafica',    icon: User },
     { key: 'corrispettivi', label: 'Corrispettivi', icon: Receipt },
     { key: 'costi',         label: 'Costi',         icon: Receipt },
     { key: 'fatture',       label: 'Fatture',       icon: FileText },
@@ -373,7 +406,10 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">{cliente.nome} {cliente.cognome}</h1>
-            <p className="text-sm text-gray-500">{cliente.email} · Anno {anno}</p>
+            <p className="text-sm text-gray-500">
+              {cliente.email} · Anno {anno}
+              {cliente.codiceCliente && <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">{cliente.codiceCliente}</span>}
+            </p>
           </div>
         </div>
       </div>
@@ -434,6 +470,77 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Anagrafica */}
+      {activeTab === 'anagrafica' && anagraficaForm && (
+        <div className="space-y-4 max-w-lg">
+          {anagraficaSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-medium">
+              <CheckCircle className="w-4 h-4 shrink-0" /> {anagraficaSuccess}
+            </div>
+          )}
+          <form onSubmit={handleSaveAnagrafica} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <User className="w-4 h-4 text-primary" /> Dati Anagrafici
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <input type="text" value={anagraficaForm.nome}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, nome: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                <input type="text" value={anagraficaForm.cognome}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, cognome: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" value={anagraficaForm.email}
+                onChange={(e) => setAnagraficaForm({ ...anagraficaForm, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                <input type="tel" value={anagraficaForm.telefono}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, telefono: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Codice Cliente</label>
+                <input type="text" value={anagraficaForm.codiceCliente}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, codiceCliente: e.target.value })}
+                  placeholder="Es. CLI-001"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                <input type="text" value={anagraficaForm.codiceFiscale}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, codiceFiscale: e.target.value.toUpperCase() })}
+                  placeholder="RSSMRA80A01H501U"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
+                <input type="text" value={anagraficaForm.partitaIva}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, partitaIva: e.target.value })}
+                  placeholder="12345678901"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono" />
+              </div>
+            </div>
+            <button type="submit" disabled={savingAnagrafica}
+              className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
+              <Save className="w-4 h-4" />{savingAnagrafica ? 'Salvataggio...' : 'Salva Anagrafica'}
+            </button>
+          </form>
         </div>
       )}
 

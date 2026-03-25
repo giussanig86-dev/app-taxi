@@ -17,6 +17,7 @@ import ApprovazioniPage from '@/pages/consulente/ApprovazioniPage'
 import ImpostazioniPage from '@/pages/consulente/ImpostazioniPage'
 import AdminDashboardPage from '@/pages/admin/DashboardPage'
 import ConsulenteListPage from '@/pages/admin/ConsulenteListPage'
+import ImportazioneBatchPage from '@/pages/consulente/ImportazioneBatchPage'
 
 const router = createBrowserRouter([
   {
@@ -46,8 +47,9 @@ const router = createBrowserRouter([
       { path: 'consulente',                  element: <ConsDashboard /> },
       { path: 'consulente/clienti',          element: <ClientiPage /> },
       { path: 'consulente/clienti/:id',      element: <ClienteDetailPage /> },
-      { path: 'consulente/approvazioni',     element: <ApprovazioniPage /> },
+      { path: 'consulente/approvazioni',      element: <ApprovazioniPage /> },
       { path: 'consulente/impostazioni',     element: <ImpostazioniPage /> },
+      { path: 'consulente/import-batch',     element: <ImportazioneBatchPage /> },
 
       // Super Admin routes
       { path: 'admin',             element: <AdminDashboardPage /> },

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/costi.controller');
 const importCtrl = require('../controllers/importCosti.controller');
+const importBatchCtrl = require('../controllers/importBatch.controller');
 const { protect, authorize } = require('../middleware/auth');
 const tenantGuard = require('../middleware/tenantGuard');
 const { validateCosto, validateObjectId } = require('../middleware/validate');
@@ -15,6 +16,12 @@ router.post('/import/preview',
 router.post('/import/confirm',
   authorize('consulente'), tenantGuard,
   importCtrl.confirm
+);
+
+// Import batch: più file, uno per cliente
+router.post('/import/batch',
+  authorize('consulente'),
+  importBatchCtrl.uploadMiddleware, importBatchCtrl.importBatch
 );
 
 // Route consulente-specifiche

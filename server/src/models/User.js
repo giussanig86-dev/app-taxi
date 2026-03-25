@@ -65,6 +65,13 @@ const userSchema = new mongoose.Schema({
     index: true
   },
 
+  // ============ CODICE CLIENTE (assegnato dal consulente) ============
+  codiceCliente: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+
   // ============ DATI FISCALI (solo clienti) ============
   partitaIva: {
     type: String,

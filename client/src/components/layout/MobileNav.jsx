@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Receipt, FileText, Wallet, Car, Landmark,
-  Users, CheckSquare, MoreHorizontal, LayoutDashboard, ShieldCheck
+  Users, CheckSquare, MoreHorizontal, LayoutDashboard, ShieldCheck, Upload
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +17,7 @@ const clienteTabs = [
 const consulenteTabs = [
   { to: '/consulente',              label: 'Home',    icon: LayoutDashboard, end: true },
   { to: '/consulente/clienti',      label: 'Clienti', icon: Users },
+  { to: '/consulente/import-batch', label: 'Batch',   icon: Upload },
   { to: '/consulente/approvazioni', label: 'Approva', icon: CheckSquare },
   { to: '/consulente/impostazioni', label: 'Altro',   icon: MoreHorizontal },
 ]
