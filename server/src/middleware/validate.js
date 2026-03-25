@@ -104,7 +104,6 @@ const validateCosto = [
 // ============ VALIDAZIONI VERSAMENTI ============
 
 const validateVersamento = [
-  body('anno').isInt({ min: 2020, max: 2100 }).withMessage('Anno non valido'),
   body('tipoVersamento')
     .isIn([
       'irpef_acconto', 'irpef_saldo',
@@ -116,10 +115,12 @@ const validateVersamento = [
     .isFloat({ min: 0.01 })
     .withMessage('Importo deve essere positivo'),
   body('dataScadenza').isISO8601().withMessage('Data scadenza non valida'),
-  body('categoriaFiscale')
+  // Campi derivabili — opzionali (il controller li calcola automaticamente)
+  body('anno').optional().isInt({ min: 2020, max: 2100 }).withMessage('Anno non valido'),
+  body('categoriaFiscale').optional()
     .isIn(['irpef', 'inps', 'imposta_sostitutiva'])
     .withMessage('Categoria fiscale non valida'),
-  body('tipoQuota')
+  body('tipoQuota').optional()
     .isIn(['acconto', 'saldo'])
     .withMessage('Tipo quota non valido'),
   runValidation

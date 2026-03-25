@@ -10,15 +10,15 @@ router.use(protect, authorize('cliente', 'consulente'), tenantGuard);
 router.get('/stats/scadenze', ctrl.statsScadenze);
 router.get('/stats/scaduti', ctrl.statsScaduti);
 
-// CRUD
+// CRUD (cliente e consulente possono creare/modificare/eliminare)
 router.route('/')
   .get(ctrl.getAll)
-  .post(authorize('cliente'), validateVersamento, ctrl.create);
+  .post(validateVersamento, ctrl.create);
 
 router.route('/:id')
   .get(validateObjectId, ctrl.getOne)
-  .put(authorize('cliente'), validateObjectId, ctrl.update)
-  .delete(authorize('cliente'), validateObjectId, ctrl.delete);
+  .put(validateObjectId, ctrl.update)
+  .delete(validateObjectId, ctrl.delete);
 
 router.patch('/:id/paga', validateObjectId, ctrl.marcaPagato);
 

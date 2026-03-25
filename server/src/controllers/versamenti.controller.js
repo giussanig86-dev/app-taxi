@@ -17,8 +17,24 @@ exports.getAll = catchAsync(async (req, res) => {
 });
 
 exports.create = catchAsync(async (req, res) => {
-  const versamento = await Versamento.create({ ...req.body, userId: req.tenantUserId || req.user._id });
-  res.status(201).json({ status: 'success', data: { versamento } });
+  const body = { ...req.body }
+  // Deriva anno e competenzaAnno dalla data di scadenza se non forniti
+  if (body.dataScadenza && !body.anno) {
+    body.anno = new Date(body.dataScadenza).getFullYear()
+  }
+  if (!body.competenzaAnno) body.competenzaAnno = body.anno
+  // Deriva tipoQuota da tipoVersamento
+  if (!body.tipoQuota && body.tipoVersamento) {
+    body.tipoQuota = body.tipoVersamento.includes('acconto') ? 'acconto' : 'saldo'
+  }
+  // Deriva categoriaFiscale da tipoVersamento
+  if (!body.categoriaFiscale && body.tipoVersamento) {
+    if (body.tipoVersamento.startsWith('irpef')) body.categoriaFiscale = 'irpef'
+    else if (body.tipoVersamento.startsWith('inps')) body.categoriaFiscale = 'inps'
+    else body.categoriaFiscale = 'imposta_sostitutiva'
+  }
+  const versamento = await Versamento.create({ ...body, userId: req.tenantUserId || req.user._id })
+  res.status(201).json({ status: 'success', data: { versamento } })
 });
 
 exports.getOne = catchAsync(async (req, res, next) => {
