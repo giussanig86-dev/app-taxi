@@ -256,20 +256,24 @@ export default function ClienteDetailPage() {
   function handleExportPDF() {
     const mese = exportMese ? parseInt(exportMese) : null
     const periodoLabel = mese ? `${MESI_EXPORT[mese - 1]} ${anno}` : `Anno ${anno}`
-    const lista = (corrispettivi || [])
-      .filter(c => !mese || new Date(c.data).getMonth() === mese - 1)
-      .sort((a, b) => new Date(a.data) - new Date(b.data))
-    const totaleE = lista.reduce((s, c) => s + c.importo, 0)
-    const giorniL = new Set(lista.map(c => new Date(c.data).toLocaleDateString('it-IT'))).size
     const nomeCliente = cliente ? `${cliente.nome} ${cliente.cognome}` : ''
 
-    const righe = lista.map((c, i) => `<tr>
+    // Raggruppa per giorno
+    const perGiorno = {}
+    ;(corrispettivi || [])
+      .filter(c => !mese || new Date(c.data).getMonth() === mese - 1)
+      .forEach(c => {
+        const chiave = new Date(c.data).toLocaleDateString('it-IT')
+        if (!perGiorno[chiave]) perGiorno[chiave] = { label: chiave, totale: 0, dataRaw: new Date(c.data) }
+        perGiorno[chiave].totale += c.importo
+      })
+    const giornate = Object.values(perGiorno).sort((a, b) => a.dataRaw - b.dataRaw)
+    const totaleE = giornate.reduce((s, g) => s + g.totale, 0)
+
+    const righe = giornate.map((g, i) => `<tr>
       <td>${i+1}</td>
-      <td>${new Date(c.data).toLocaleDateString('it-IT')}</td>
-      <td style="text-align:right">${c.importo.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</td>
-      <td>${c.metodoPagamento?.charAt(0).toUpperCase()+c.metodoPagamento?.slice(1)||''}</td>
-      <td>${c.numerazione||''}</td>
-      <td>${c.note||''}</td>
+      <td>${g.label}</td>
+      <td style="text-align:right">${g.totale.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</td>
     </tr>`).join('')
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"/>
@@ -293,17 +297,16 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
 <div class="info-box">
 <p><strong>Titolare:</strong> ${nomeCliente}</p>
 <p><strong>Data generazione:</strong> ${new Date().toLocaleString('it-IT')}</p>
-<p><strong>Registrazioni:</strong> ${lista.length} · <strong>Giorni lavorati:</strong> ${giorniL}</p>
+<p><strong>Giorni lavorati:</strong> ${giornate.length}</p>
 </div>
-<table><thead><tr><th>N.</th><th>Data</th><th>Importo</th><th>Metodo</th><th>Numerazione</th><th>Note</th></tr></thead>
+<table><thead><tr><th>N.</th><th>Data</th><th>Importo Giornaliero</th></tr></thead>
 <tbody>${righe}<tr class="total-row"><td colspan="2">TOTALE</td>
 <td style="text-align:right">${totaleE.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</td>
-<td colspan="3"></td></tr></tbody></table>
+</tr></tbody></table>
 <div class="summary">
 <div class="summary-box"><span>Totale Incassato</span><strong>${totaleE.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</strong></div>
-<div class="summary-box"><span>Giorni Lavorati</span><strong>${giorniL}</strong></div>
-<div class="summary-box"><span>N. Registrazioni</span><strong>${lista.length}</strong></div>
-<div class="summary-box"><span>Media Giornaliera</span><strong>${giorniL>0?(totaleE/giorniL).toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'–'}</strong></div>
+<div class="summary-box"><span>Giorni Lavorati</span><strong>${giornate.length}</strong></div>
+<div class="summary-box"><span>Media Giornaliera</span><strong>${giornate.length>0?(totaleE/giornate.length).toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'–'}</strong></div>
 </div>
 <div class="footer">Documento generato da App Taxi · ${new Date().toLocaleDateString('it-IT')}</div>
 <script>window.onload=function(){window.print()}<\/script>

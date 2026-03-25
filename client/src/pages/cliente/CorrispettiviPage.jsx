@@ -140,22 +140,24 @@ export default function CorrispettiviPage() {
     const mesiFull = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
     const periodoLabel = mese ? `${mesiFull[mese - 1]} ${anno}` : `Anno ${anno}`
 
-    const filtered2 = corrispettivi.filter(c => {
-      if (!mese) return true
-      return new Date(c.data).getMonth() === mese - 1
-    }).sort((a, b) => new Date(a.data) - new Date(b.data))
+    // Raggruppa per giorno
+    const perGiorno = {}
+    corrispettivi
+      .filter(c => !mese || new Date(c.data).getMonth() === mese - 1)
+      .forEach(c => {
+        const chiave = new Date(c.data).toLocaleDateString('it-IT')
+        if (!perGiorno[chiave]) perGiorno[chiave] = { label: chiave, totale: 0, dataRaw: new Date(c.data) }
+        perGiorno[chiave].totale += c.importo
+      })
+    const giornate = Object.values(perGiorno).sort((a, b) => a.dataRaw - b.dataRaw)
 
-    const totaleExport = filtered2.reduce((s, c) => s + c.importo, 0)
-    const giorniLavorati = new Set(filtered2.map(c => new Date(c.data).toLocaleDateString('it-IT'))).size
+    const totaleExport = giornate.reduce((s, g) => s + g.totale, 0)
 
-    const righe = filtered2.map((c, i) => `
+    const righe = giornate.map((g, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td>${new Date(c.data).toLocaleDateString('it-IT')}</td>
-        <td style="text-align:right">${c.importo.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</td>
-        <td>${c.metodoPagamento?.charAt(0).toUpperCase() + c.metodoPagamento?.slice(1) || ''}</td>
-        <td>${c.numerazione || ''}</td>
-        <td>${c.note || ''}</td>
+        <td>${g.label}</td>
+        <td style="text-align:right">${g.totale.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</td>
       </tr>`).join('')
 
     const html = `<!DOCTYPE html>
@@ -188,21 +190,18 @@ export default function CorrispettiviPage() {
 
 <div class="info-box">
   <p><strong>Data generazione:</strong> ${new Date().toLocaleString('it-IT')}</p>
-  <p><strong>Registrazioni nel periodo:</strong> ${filtered2.length} · <strong>Giorni lavorati:</strong> ${giorniLavorati}</p>
+  <p><strong>Giorni lavorati:</strong> ${giornate.length}</p>
 </div>
 
 <table>
   <thead>
-    <tr>
-      <th>N.</th><th>Data</th><th>Importo</th><th>Metodo</th><th>Numerazione</th><th>Note</th>
-    </tr>
+    <tr><th>N.</th><th>Data</th><th>Importo Giornaliero</th></tr>
   </thead>
   <tbody>
     ${righe}
     <tr class="total-row">
       <td colspan="2">TOTALE</td>
       <td style="text-align:right">${totaleExport.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</td>
-      <td colspan="3"></td>
     </tr>
   </tbody>
 </table>
@@ -214,15 +213,11 @@ export default function CorrispettiviPage() {
   </div>
   <div class="summary-box">
     <span>Giorni Lavorati</span>
-    <strong>${giorniLavorati}</strong>
-  </div>
-  <div class="summary-box">
-    <span>N. Registrazioni</span>
-    <strong>${filtered2.length}</strong>
+    <strong>${giornate.length}</strong>
   </div>
   <div class="summary-box">
     <span>Media Giornaliera</span>
-    <strong>${giorniLavorati > 0 ? (totaleExport / giorniLavorati).toLocaleString('it-IT', {style:'currency',currency:'EUR'}) : '–'}</strong>
+    <strong>${giornate.length > 0 ? (totaleExport / giornate.length).toLocaleString('it-IT', {style:'currency',currency:'EUR'}) : '–'}</strong>
   </div>
 </div>
 
