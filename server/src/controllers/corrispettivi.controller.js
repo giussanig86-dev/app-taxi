@@ -130,80 +130,74 @@ exports.exportRegistro = catchAsync(async (req, res, next) => {
 
   const corrispettivi = await Corrispettivo.find(filter).sort({ data: 1 });
 
+  // ── Raggruppa per giorno ──────────────────────────────────────────────
+  const perGiorno = {};
+  corrispettivi.forEach((c) => {
+    const chiave = formatDataIT(c.data); // es. "01/03/2026"
+    if (!perGiorno[chiave]) perGiorno[chiave] = { dataLabel: chiave, totale: 0, dataRaw: new Date(c.data) };
+    perGiorno[chiave].totale += c.importo;
+  });
+  // Ordina per data
+  const giornate = Object.values(perGiorno).sort((a, b) => a.dataRaw - b.dataRaw);
+
   const nomeMese = mese ? MESI_IT[mese - 1] : 'Annuale';
   const periodoLabel = mese ? `${nomeMese} ${anno}` : `Anno ${anno}`;
   const nomeFile = `registro-corrispettivi-${anno}${mese ? `-${String(mese).padStart(2,'0')}` : ''}.xlsx`;
 
   // ── Costruzione foglio Excel ──────────────────────────────────────────
   const wb = XLSX.utils.book_new();
-
-  // Stili (limitati a xlsx community edition)
   const aoa = [];
 
-  // Intestazione azienda / titolare
-  aoa.push(['REGISTRO CORRISPETTIVI', '', '', '', '', '']);
-  aoa.push([`Periodo: ${periodoLabel}`, '', '', '', '', '']);
+  // Intestazione / dati titolare
+  aoa.push(['REGISTRO CORRISPETTIVI', '', '', '']);
+  aoa.push([`Periodo: ${periodoLabel}`, '', '', '']);
   aoa.push(['']);
-  aoa.push(['DATI TITOLARE', '', '', '', '', '']);
-  aoa.push(['Nome e Cognome:', `${titolare.nome} ${titolare.cognome}`, '', 'Telefono:', titolare.telefono || '-', '']);
-  aoa.push(['Codice Fiscale:', titolare.codiceFiscale || '-', '', 'P.IVA:', titolare.partitaIva || '-', '']);
+  aoa.push(['DATI TITOLARE', '', '', '']);
+  aoa.push(['Nome e Cognome:', `${titolare.nome} ${titolare.cognome}`, 'Telefono:', titolare.telefono || '-']);
+  aoa.push(['Codice Fiscale:', titolare.codiceFiscale || '-', 'P.IVA:', titolare.partitaIva || '-']);
   if (titolare.indirizzo?.comune) {
-    aoa.push(['Indirizzo:', `${titolare.indirizzo.via || ''} - ${titolare.indirizzo.cap || ''} ${titolare.indirizzo.comune || ''} (${titolare.indirizzo.provincia || ''})`, '', '', '', '']);
+    aoa.push(['Indirizzo:', `${titolare.indirizzo.via || ''} - ${titolare.indirizzo.cap || ''} ${titolare.indirizzo.comune || ''} (${titolare.indirizzo.provincia || ''})`, '', '']);
   }
   aoa.push(['']);
-  aoa.push(['Data generazione:', new Date().toLocaleString('it-IT'), '', '', '', '']);
+  aoa.push(['Data generazione:', new Date().toLocaleString('it-IT'), '', '']);
   aoa.push(['']);
 
-  // Intestazione tabella
-  aoa.push(['N.', 'Data', 'Importo (€)', 'Metodo Pagamento', 'Numerazione', 'Note']);
+  // Intestazione tabella (4 colonne, senza metodo pagamento)
+  aoa.push(['N.', 'Data', 'Importo (€)', 'Note']);
 
   let totaleGenerale = 0;
-  let giorniLavorati = new Set();
   let riga = 1;
 
-  // Se export mensile, separa per settimana per leggibilità (opzionale)
-  // Qui riga per riga semplice
-  corrispettivi.forEach((c) => {
-    giorniLavorati.add(formatDataIT(c.data));
-    totaleGenerale += c.importo;
-    aoa.push([
-      riga++,
-      formatDataIT(c.data),
-      c.importo,
-      METODI_LABEL[c.metodoPagamento] || c.metodoPagamento,
-      c.numerazione || '',
-      c.note || '',
-    ]);
+  giornate.forEach((g) => {
+    totaleGenerale += g.totale;
+    aoa.push([riga++, g.dataLabel, g.totale, '']);
   });
 
   aoa.push(['']);
-  aoa.push(['', 'TOTALE', totaleGenerale, '', '', '']);
-  aoa.push(['', 'Giorni lavorati', giorniLavorati.size, '', '', '']);
-  aoa.push(['', 'Registrazioni', corrispettivi.length, '', '', '']);
+  aoa.push(['', 'TOTALE', totaleGenerale, '']);
+  aoa.push(['', 'Giorni lavorati', giornate.length, '']);
 
   // Riepilogo mensile (solo se export annuale)
-  if (!mese && corrispettivi.length > 0) {
+  if (!mese && giornate.length > 0) {
     aoa.push(['']);
-    aoa.push(['RIEPILOGO MENSILE', '', '', '', '', '']);
-    aoa.push(['Mese', 'Registrazioni', 'Totale (€)', 'Media (€)', '', '']);
+    aoa.push(['RIEPILOGO MENSILE', '', '', '']);
+    aoa.push(['Mese', 'Giorni lavorati', 'Totale (€)', 'Media giornaliera (€)']);
 
     const perMese = {};
-    corrispettivi.forEach((c) => {
-      const m = new Date(c.data).getMonth();
-      if (!perMese[m]) perMese[m] = { count: 0, totale: 0 };
-      perMese[m].count++;
-      perMese[m].totale += c.importo;
+    giornate.forEach((g) => {
+      const m = g.dataRaw.getMonth();
+      if (!perMese[m]) perMese[m] = { giorni: 0, totale: 0 };
+      perMese[m].giorni++;
+      perMese[m].totale += g.totale;
     });
 
     Object.keys(perMese).sort((a, b) => a - b).forEach((m) => {
       const d = perMese[m];
       aoa.push([
         MESI_IT[parseInt(m)],
-        d.count,
+        d.giorni,
         d.totale,
-        Math.round((d.totale / d.count) * 100) / 100,
-        '',
-        '',
+        Math.round((d.totale / d.giorni) * 100) / 100,
       ]);
     });
   }
@@ -214,8 +208,6 @@ exports.exportRegistro = catchAsync(async (req, res, next) => {
   ws['!cols'] = [
     { wch: 5 },
     { wch: 14 },
-    { wch: 14 },
-    { wch: 18 },
     { wch: 16 },
     { wch: 30 },
   ];
