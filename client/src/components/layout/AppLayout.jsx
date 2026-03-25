@@ -5,6 +5,7 @@ import Topbar from './Topbar'
 import MobileNav from './MobileNav'
 import VoiceFAB from '@/components/shared/VoiceFAB'
 import { useAuth } from '@/hooks/useAuth'
+import { ActiveClienteProvider } from '@/contexts/ActiveClienteContext'
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -16,30 +17,32 @@ export default function AppLayout() {
   const isCliente = user?.ruolo === 'cliente'
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <ActiveClienteProvider>
+      <div className="min-h-screen flex">
+        {/* Sidebar */}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
-        <Topbar
-          onMenuClick={() => setSidebarOpen(true)}
-          anno={anno}
-          onAnnoChange={setAnno}
-        />
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
+          <Topbar
+            onMenuClick={() => setSidebarOpen(true)}
+            anno={anno}
+            onAnnoChange={setAnno}
+          />
 
-        <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6 overflow-x-hidden">
-          <Outlet context={{ anno, refreshKey }} />
-        </main>
+          <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6 overflow-x-hidden">
+            <Outlet context={{ anno, refreshKey }} />
+          </main>
 
-        {/* Mobile bottom nav */}
-        <MobileNav />
+          {/* Mobile bottom nav */}
+          <MobileNav />
 
-        {/* Voice FAB - solo per clienti */}
-        {isCliente && (
-          <VoiceFAB onSaved={() => setRefreshKey(k => k + 1)} />
-        )}
+          {/* Voice FAB - solo per clienti */}
+          {isCliente && (
+            <VoiceFAB onSaved={() => setRefreshKey(k => k + 1)} />
+          )}
+        </div>
       </div>
-    </div>
+    </ActiveClienteProvider>
   )
 }

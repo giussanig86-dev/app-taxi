@@ -20,9 +20,11 @@ import VersamentoFormModal from '@/components/shared/VersamentoFormModal'
 import CorrispettivoFormModal from '@/components/shared/CorrispettivoFormModal'
 import CostoFormModal from '@/components/shared/CostoFormModal'
 import { useOutletContext } from 'react-router-dom'
+import { useActiveCliente } from '@/contexts/ActiveClienteContext'
 
 export default function ClienteDetailPage() {
   const { id } = useParams()
+  const { setActive, clearActive } = useActiveCliente()
   const { anno } = useOutletContext()
 
   const [cliente, setCliente] = useState(null)
@@ -93,6 +95,11 @@ export default function ClienteDetailPage() {
     setShowExport(false)
   }, [anno])
 
+  // Svuota il context quando si lascia la pagina del cliente
+  useEffect(() => {
+    return () => clearActive()
+  }, [])
+
   async function fetchDashboard() {
     setLoading(true)
     try {
@@ -103,6 +110,15 @@ export default function ClienteDetailPage() {
       const c = clienteRes.data.data
       setCliente(c)
       setDashboard(dashRes.data.data)
+      // Popola il context per la Topbar (veicolo caricato dopo, in fetchVeicoli)
+      setActive({
+        nome: c.nome || '',
+        cognome: c.cognome || '',
+        codiceCliente: c.codiceCliente || '',
+        numeroLicenza: c.numeroLicenza || '',
+        comuneRilascioLicenza: c.comuneRilascioLicenza || '',
+        targa: null,
+      })
       setAnagraficaForm({
         nome: c.nome || '',
         cognome: c.cognome || '',
@@ -383,7 +399,12 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
       const res = await api.get('/veicoli', { params: { userId: id } })
       const list = res.data.data?.veicoli || []
       setVeicoli(list)
-      setVeicoloAttivo(list.find(v => v.attivo) || null)
+      const attivo = list.find(v => v.attivo) || null
+      setVeicoloAttivo(attivo)
+      // Aggiorna targa nel context
+      if (attivo?.targa) {
+        setActive(prev => prev ? { ...prev, targa: attivo.targa } : prev)
+      }
     } catch { setVeicoli([]) }
     finally { setVeicoloLoading(false) }
   }
