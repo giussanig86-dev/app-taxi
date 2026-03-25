@@ -84,6 +84,14 @@ const userSchema = new mongoose.Schema({
     maxlength: 100
   },
 
+  // ============ STATO OPERATIVO CLIENTE ============
+  statoCliente: {
+    type: String,
+    enum: ['attivo', 'sospeso', 'cessato'],
+    default: 'attivo',
+    index: true
+  },
+
   // ============ DATI FISCALI (solo clienti) ============
   partitaIva: {
     type: String,

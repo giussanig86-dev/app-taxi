@@ -14,5 +14,7 @@ router.get('/clienti', authorize('consulente'), ctrl.getClienti);
 router.post('/clienti', authorize('consulente'), ctrl.createCliente);
 router.get('/clienti/:id', authorize('consulente'), ctrl.getCliente);
 router.put('/clienti/:id', authorize('consulente'), ctrl.updateCliente);
+router.put('/clienti/:id/stato', authorize('consulente'), ctrl.cambiaStato);
+router.get('/clienti/:id/stato/storico', authorize('consulente'), ctrl.getStoricoStato);
 
 module.exports = router;

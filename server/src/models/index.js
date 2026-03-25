@@ -13,6 +13,8 @@ const ScaglioneIrpef = require('./ScaglioneIrpef');
 const SdiSyncLog = require('./SdiSyncLog');
 const Documento = require('./Documento');
 const Veicolo = require('./Veicolo');
+const StatoLog = require('./StatoLog');
+const Notifica = require('./Notifica');
 
 module.exports = {
   User,
@@ -26,4 +28,6 @@ module.exports = {
   SdiSyncLog,
   Documento,
   Veicolo,
+  StatoLog,
+  Notifica,
 };

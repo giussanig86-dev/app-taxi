@@ -65,6 +65,13 @@ export default function ClienteDetailPage() {
   const [showStoricizza, setShowStoricizza] = useState(false)
   const [veicoloSuccess, setVeicoloSuccess] = useState('')
 
+  // Stato cliente
+  const [statoForm, setStatoForm] = useState({ stato: '', motivazione: '', dataVariazione: '' })
+  const [showStatoForm, setShowStatoForm] = useState(false)
+  const [savingStato, setSavingStato] = useState(false)
+  const [storicoStato, setStoricoStato] = useState(null)
+  const [showStoricoStato, setShowStoricoStato] = useState(false)
+
   // Documenti
   const [documenti, setDocumenti] = useState(null)
   const [docUploading, setDocUploading] = useState(false)
@@ -380,6 +387,35 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
     }
   }
 
+  async function handleCambiaStato(e) {
+    e.preventDefault()
+    if (!statoForm.stato) return
+    setSavingStato(true)
+    try {
+      const res = await api.put(`/users/clienti/${id}/stato`, statoForm)
+      const updated = res.data.data?.cliente || res.data.data
+      setCliente(updated)
+      setShowStatoForm(false)
+      setStatoForm({ stato: '', motivazione: '', dataVariazione: '' })
+      setStoricoStato(null) // force reload
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore cambio stato')
+    } finally { setSavingStato(false) }
+  }
+
+  async function fetchStoricoStato() {
+    try {
+      const res = await api.get(`/users/clienti/${id}/stato/storico`)
+      setStoricoStato(res.data.data?.storico || [])
+    } catch { setStoricoStato([]) }
+  }
+
+  const STATO_CONFIG = {
+    attivo:  { label: 'Attivo',  cls: 'bg-green-100 text-green-700' },
+    sospeso: { label: 'Sospeso', cls: 'bg-amber-100 text-amber-700' },
+    cessato: { label: 'Cessato', cls: 'bg-red-100 text-red-700' },
+  }
+
   const ALIMENTAZIONI_V = [
     { value: 'benzina', label: 'Benzina' }, { value: 'diesel', label: 'Diesel' },
     { value: 'gpl', label: 'GPL' }, { value: 'metano', label: 'Metano' },
@@ -658,6 +694,92 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
               <Save className="w-4 h-4" />{savingAnagrafica ? 'Salvataggio...' : 'Salva Anagrafica'}
             </button>
           </form>
+
+          {/* Stato Cliente */}
+          <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-gray-800">Stato Cliente</h3>
+                {cliente?.statoCliente && (() => {
+                  const cfg = STATO_CONFIG[cliente.statoCliente] || STATO_CONFIG.attivo
+                  return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>{cfg.label}</span>
+                })()}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowStoricoStato(s => !s); if (!storicoStato) fetchStoricoStato() }}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                  <History className="w-3.5 h-3.5" /> Storico
+                </button>
+                <button
+                  onClick={() => setShowStatoForm(s => !s)}
+                  className="text-xs text-primary hover:underline">
+                  {showStatoForm ? 'Annulla' : 'Modifica stato'}
+                </button>
+              </div>
+            </div>
+
+            {showStatoForm && (
+              <form onSubmit={handleCambiaStato} className="border border-gray-100 rounded-lg p-4 space-y-3 bg-gray-50">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nuovo stato *</label>
+                    <select value={statoForm.stato} required
+                      onChange={e => setStatoForm({ ...statoForm, stato: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                      <option value="">Seleziona...</option>
+                      <option value="attivo">Attivo</option>
+                      <option value="sospeso">Sospeso</option>
+                      <option value="cessato">Cessato</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Data variazione</label>
+                    <input type="date" value={statoForm.dataVariazione}
+                      onChange={e => setStatoForm({ ...statoForm, dataVariazione: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Motivazione</label>
+                  <input type="text" value={statoForm.motivazione} placeholder="Es. Cliente non più attivo"
+                    onChange={e => setStatoForm({ ...statoForm, motivazione: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <button type="submit" disabled={savingStato}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                  {savingStato ? 'Salvataggio...' : 'Conferma cambio stato'}
+                </button>
+              </form>
+            )}
+
+            {showStoricoStato && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Storico variazioni</p>
+                {storicoStato === null ? (
+                  <p className="text-xs text-gray-400">Caricamento...</p>
+                ) : storicoStato.length === 0 ? (
+                  <p className="text-xs text-gray-400">Nessuna variazione registrata.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {storicoStato.map(s => {
+                      const cfg = STATO_CONFIG[s.stato] || STATO_CONFIG.attivo
+                      return (
+                        <div key={s._id} className="flex items-start gap-3 text-xs border-l-2 border-gray-100 pl-3 py-1">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${cfg.cls}`}>{cfg.label}</span>
+                          <div>
+                            <span className="text-gray-500">{new Date(s.dataVariazione).toLocaleDateString('it-IT')}</span>
+                            {s.motivazione && <span className="ml-2 text-gray-400">— {s.motivazione}</span>}
+                            {s.cambiatoDa && <span className="ml-2 text-gray-300">da {s.cambiatoDa.nome} {s.cambiatoDa.cognome}</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

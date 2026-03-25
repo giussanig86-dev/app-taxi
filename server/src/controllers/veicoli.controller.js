@@ -10,6 +10,8 @@
  */
 
 const Veicolo = require('../models/Veicolo');
+const User = require('../models/User');
+const Notifica = require('../models/Notifica');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 
@@ -77,6 +79,27 @@ exports.storicizza = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
   if (!veicolo) return next(new AppError('Veicolo attivo non trovato.', 404));
+
+  // Notifica al consulente del cliente
+  try {
+    const cliente = await User.findById(veicolo.userId).select('nome cognome consulenteId codiceCliente');
+    if (cliente?.consulenteId) {
+      const motivoLabel = motivoFineUso === 'vendita' ? 'venduto'
+        : motivoFineUso === 'permuta' ? 'ceduto in permuta'
+        : motivoFineUso === 'rottamazione' ? 'rottamato' : 'dismesso';
+      await Notifica.create({
+        userId: cliente.consulenteId,
+        tipo: 'cambio_veicolo',
+        titolo: 'Cambio veicolo',
+        messaggio: `${cliente.nome} ${cliente.cognome} ha ${motivoLabel} il veicolo ${veicolo.targa} (${veicolo.marca} ${veicolo.modello}) in data ${new Date(dataFineUso).toLocaleDateString('it-IT')}. Contattare il cliente per registrare il nuovo automezzo.`,
+        clienteId: cliente._id,
+        datiExtra: { targaPrecedente: veicolo.targa, motivo: motivoFineUso }
+      });
+    }
+  } catch (err) {
+    console.error('Errore creazione notifica cambio veicolo:', err);
+  }
+
   res.json({ status: 'success', data: { veicolo } });
 });
 
