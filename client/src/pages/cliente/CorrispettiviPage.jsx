@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Calendar, CreditCard, Banknote, Trash2, Edit3, X, Save, Filter } from 'lucide-react'
+import { Plus, Search, Calendar, CreditCard, Banknote, Trash2, Edit3, X, Save, Filter, FileSpreadsheet, FileText, Download, ChevronDown } from 'lucide-react'
 import api from '@/lib/api'
 import { formatEuro, formatData, formatDataInput, cn, MESI } from '@/lib/utils'
 import { METODI_PAGAMENTO } from '@/lib/constants'
@@ -31,6 +31,9 @@ export default function CorrispettiviPage() {
   const [meseFilter, setMeseFilter] = useState('')
   const [metodoFilter, setMetodoFilter] = useState('')
   const [stats, setStats] = useState(null)
+  const [showExport, setShowExport] = useState(false)
+  const [exportMese, setExportMese] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -103,6 +106,137 @@ export default function CorrispettiviPage() {
     }
   }
 
+  async function handleExportExcel() {
+    setExporting(true)
+    try {
+      const params = { anno }
+      if (exportMese) params.mese = exportMese
+      const token = localStorage.getItem('token')
+      const baseUrl = import.meta.env.VITE_API_URL || ''
+      const qs = new URLSearchParams(params).toString()
+      const res = await fetch(`${baseUrl}/api/v1/corrispettivi/export/registro?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Errore export')
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename="([^"]+)"/)
+      const filename = match ? match[1] : `registro-${anno}.xlsx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Errore durante l\'esportazione Excel')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  function handleExportPDF() {
+    const mese = exportMese ? parseInt(exportMese) : null
+    const mesiFull = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
+    const periodoLabel = mese ? `${mesiFull[mese - 1]} ${anno}` : `Anno ${anno}`
+
+    const filtered2 = corrispettivi.filter(c => {
+      if (!mese) return true
+      return new Date(c.data).getMonth() === mese - 1
+    }).sort((a, b) => new Date(a.data) - new Date(b.data))
+
+    const totaleExport = filtered2.reduce((s, c) => s + c.importo, 0)
+    const giorniLavorati = new Set(filtered2.map(c => new Date(c.data).toLocaleDateString('it-IT'))).size
+
+    const righe = filtered2.map((c, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${new Date(c.data).toLocaleDateString('it-IT')}</td>
+        <td style="text-align:right">${c.importo.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</td>
+        <td>${c.metodoPagamento?.charAt(0).toUpperCase() + c.metodoPagamento?.slice(1) || ''}</td>
+        <td>${c.numerazione || ''}</td>
+        <td>${c.note || ''}</td>
+      </tr>`).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<title>Registro Corrispettivi – ${periodoLabel}</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #222; }
+  h1 { font-size: 16px; margin-bottom: 4px; }
+  .subtitle { color: #555; margin-bottom: 16px; }
+  .info-box { border: 1px solid #ddd; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; }
+  .info-box p { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { background: #1a1a2e; color: #fff; padding: 7px 8px; text-align: left; font-size: 10px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  .total-row td { font-weight: bold; background: #f0f4ff; border-top: 2px solid #aaa; }
+  .summary { display: flex; gap: 20px; margin-top: 16px; }
+  .summary-box { flex: 1; border: 1px solid #ddd; padding: 10px; border-radius: 4px; text-align: center; }
+  .summary-box strong { display: block; font-size: 18px; color: #1a1a2e; }
+  .footer { margin-top: 30px; font-size: 9px; color: #999; text-align: center; }
+  @media print { button { display: none !important; } }
+</style>
+</head>
+<body>
+<h1>REGISTRO CORRISPETTIVI</h1>
+<p class="subtitle">Periodo: ${periodoLabel}</p>
+
+<div class="info-box">
+  <p><strong>Data generazione:</strong> ${new Date().toLocaleString('it-IT')}</p>
+  <p><strong>Registrazioni nel periodo:</strong> ${filtered2.length} · <strong>Giorni lavorati:</strong> ${giorniLavorati}</p>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>N.</th><th>Data</th><th>Importo</th><th>Metodo</th><th>Numerazione</th><th>Note</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${righe}
+    <tr class="total-row">
+      <td colspan="2">TOTALE</td>
+      <td style="text-align:right">${totaleExport.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</td>
+      <td colspan="3"></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="summary">
+  <div class="summary-box">
+    <span>Totale Incassato</span>
+    <strong>${totaleExport.toLocaleString('it-IT', {style:'currency',currency:'EUR'})}</strong>
+  </div>
+  <div class="summary-box">
+    <span>Giorni Lavorati</span>
+    <strong>${giorniLavorati}</strong>
+  </div>
+  <div class="summary-box">
+    <span>N. Registrazioni</span>
+    <strong>${filtered2.length}</strong>
+  </div>
+  <div class="summary-box">
+    <span>Media Giornaliera</span>
+    <strong>${giorniLavorati > 0 ? (totaleExport / giorniLavorati).toLocaleString('it-IT', {style:'currency',currency:'EUR'}) : '–'}</strong>
+  </div>
+</div>
+
+<div class="footer">Documento generato da App Taxi · ${new Date().toLocaleDateString('it-IT')}</div>
+
+<script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+  }
+
   const filtered = corrispettivi.filter((c) => {
     if (search && !c.numerazione?.toLowerCase().includes(search.toLowerCase()) &&
         !c.note?.toLowerCase().includes(search.toLowerCase())) return false
@@ -171,6 +305,57 @@ export default function CorrispettiviPage() {
           ))}
         </div>
       )}
+
+      {/* Export Registro Corrispettivi */}
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => setShowExport(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary" />
+            Scarica Registro Corrispettivi
+          </span>
+          <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform', showExport && 'rotate-180')} />
+        </button>
+        {showExport && (
+          <div className="px-5 pb-5 space-y-4 border-t border-gray-50">
+            <div className="flex flex-wrap items-end gap-3 pt-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Periodo</label>
+                <select
+                  value={exportMese}
+                  onChange={(e) => setExportMese(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Anno {anno} (completo)</option>
+                  {MESI.map((m, i) => (
+                    <option key={i} value={i + 1}>{m} {anno}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleExportExcel}
+                disabled={exporting}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {exporting ? 'Esportazione...' : 'Scarica Excel'}
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                Stampa / PDF
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              Excel: file scaricabile con tutti i dati strutturati. PDF: si apre la finestra di stampa del browser — scegli «Salva come PDF».
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Lista */}
       {filtered.length === 0 ? (

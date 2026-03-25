@@ -13,6 +13,9 @@ router.get('/stats/mese', ctrl.statsMese);
 router.get('/stats/metodi', ctrl.statsMetodi);
 router.get('/stats/andamento', ctrl.statsAndamento);
 
+// Export Registro Corrispettivi (Excel)
+router.get('/export/registro', ctrl.exportRegistro);
+
 // Import registro corrispettivi (solo consulente, richiede ?userId=clienteId)
 router.post('/import/preview',
   authorize('consulente'),

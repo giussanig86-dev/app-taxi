@@ -11,6 +11,7 @@ const Chilometro = require('./Chilometro');
 const AuditLog = require('./AuditLog');
 const ScaglioneIrpef = require('./ScaglioneIrpef');
 const SdiSyncLog = require('./SdiSyncLog');
+const Documento = require('./Documento');
 
 module.exports = {
   User,
@@ -21,5 +22,6 @@ module.exports = {
   Chilometro,
   AuditLog,
   ScaglioneIrpef,
-  SdiSyncLog
+  SdiSyncLog,
+  Documento,
 };
