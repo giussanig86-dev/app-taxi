@@ -52,12 +52,15 @@ export default function ProfiloPage() {
     cognome: '',
     email: '',
     telefono: '',
+    codiceCliente: '',
   })
   const [datiFiscali, setDatiFiscali] = useState({
     regimeFiscale: 'forfettario',
     coefficienteRedditivita: 67,
     aliquotaForfettaria: 15,
     aliquotaINPS: 24.48,
+    codiceFiscale: '',
+    partitaIva: '',
   })
   const [passwordForm, setPasswordForm] = useState({
     passwordAttuale: '',
@@ -93,12 +96,15 @@ export default function ProfiloPage() {
         cognome: u.cognome || '',
         email: u.email || '',
         telefono: u.telefono || '',
+        codiceCliente: u.codiceCliente || '',
       })
       setDatiFiscali({
         regimeFiscale: u.regimeFiscale || 'forfettario',
         coefficienteRedditivita: Math.round((u.coefficienteRedditivita ?? 0.67) * 100),
         aliquotaForfettaria: Math.round((u.aliquotaForfettaria ?? 0.15) * 100),
         aliquotaINPS: Math.round((u.aliquotaINPS ?? 0.2448) * 10000) / 100,
+        codiceFiscale: u.codiceFiscale || '',
+        partitaIva: u.partitaIva || '',
       })
     } catch (err) {
       console.error('Errore caricamento profilo:', err)
@@ -143,6 +149,8 @@ export default function ProfiloPage() {
       const payload = {
         regimeFiscale: datiFiscali.regimeFiscale,
         aliquotaINPS: datiFiscali.aliquotaINPS / 100,
+        codiceFiscale: datiFiscali.codiceFiscale,
+        partitaIva: datiFiscali.partitaIva,
       }
       if (datiFiscali.regimeFiscale === 'forfettario') {
         payload.coefficienteRedditivita = datiFiscali.coefficienteRedditivita / 100
@@ -318,6 +326,13 @@ export default function ProfiloPage() {
               onChange={(e) => setProfilo({ ...profilo, telefono: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Codice Cliente</label>
+            <input type="text" value={profilo.codiceCliente}
+              onChange={(e) => setProfilo({ ...profilo, codiceCliente: e.target.value })}
+              placeholder="Es. CLI-001"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+          </div>
           <button type="submit" disabled={saving}
             className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
             <Save className="w-4 h-4" />{saving ? 'Salvataggio...' : 'Salva Profilo'}
@@ -328,6 +343,22 @@ export default function ProfiloPage() {
       {/* Tab Fiscale */}
       {activeTab === 'fiscale' && (
         <form onSubmit={handleSaveFiscale} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4 max-w-lg">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+              <input type="text" value={datiFiscali.codiceFiscale}
+                onChange={(e) => setDatiFiscali({ ...datiFiscali, codiceFiscale: e.target.value.toUpperCase() })}
+                placeholder="RSSMRA80A01H501U"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
+              <input type="text" value={datiFiscali.partitaIva}
+                onChange={(e) => setDatiFiscali({ ...datiFiscali, partitaIva: e.target.value })}
+                placeholder="12345678901"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono" />
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Regime Fiscale</label>
             <select value={datiFiscali.regimeFiscale}
