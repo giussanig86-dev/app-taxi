@@ -12,7 +12,7 @@ export function RoleRedirect() {
     case 'consulente':
       return <Navigate to="/consulente" replace />
     case 'super_admin':
-      return <Navigate to="/dashboard" replace />
+      return <Navigate to="/admin" replace />
     default:
       return <Navigate to="/login" replace />
   }
