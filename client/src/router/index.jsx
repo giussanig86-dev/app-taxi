@@ -15,6 +15,8 @@ import ClientiPage from '@/pages/consulente/ClientiPage'
 import ClienteDetailPage from '@/pages/consulente/ClienteDetailPage'
 import ApprovazioniPage from '@/pages/consulente/ApprovazioniPage'
 import ImpostazioniPage from '@/pages/consulente/ImpostazioniPage'
+import AdminDashboardPage from '@/pages/admin/DashboardPage'
+import ConsulenteListPage from '@/pages/admin/ConsulenteListPage'
 
 const router = createBrowserRouter([
   {
@@ -32,20 +34,24 @@ const router = createBrowserRouter([
       { index: true, element: <RoleRedirect /> },
 
       // Cliente routes
-      { path: 'dashboard', element: <ClienteDashboard /> },
+      { path: 'dashboard',     element: <ClienteDashboard /> },
       { path: 'corrispettivi', element: <CorrispettiviPage /> },
-      { path: 'fatture', element: <FatturePage /> },
-      { path: 'costi', element: <CostiPage /> },
-      { path: 'versamenti', element: <VersamentiPage /> },
-      { path: 'chilometri', element: <ChilometriPage /> },
-      { path: 'profilo', element: <ProfiloPage /> },
+      { path: 'fatture',       element: <FatturePage /> },
+      { path: 'costi',         element: <CostiPage /> },
+      { path: 'versamenti',    element: <VersamentiPage /> },
+      { path: 'chilometri',    element: <ChilometriPage /> },
+      { path: 'profilo',       element: <ProfiloPage /> },
 
       // Consulente routes
-      { path: 'consulente', element: <ConsDashboard /> },
-      { path: 'consulente/clienti', element: <ClientiPage /> },
-      { path: 'consulente/clienti/:id', element: <ClienteDetailPage /> },
-      { path: 'consulente/approvazioni', element: <ApprovazioniPage /> },
-      { path: 'consulente/impostazioni', element: <ImpostazioniPage /> },
+      { path: 'consulente',                  element: <ConsDashboard /> },
+      { path: 'consulente/clienti',          element: <ClientiPage /> },
+      { path: 'consulente/clienti/:id',      element: <ClienteDetailPage /> },
+      { path: 'consulente/approvazioni',     element: <ApprovazioniPage /> },
+      { path: 'consulente/impostazioni',     element: <ImpostazioniPage /> },
+
+      // Super Admin routes
+      { path: 'admin',             element: <AdminDashboardPage /> },
+      { path: 'admin/consulenti',  element: <ConsulenteListPage /> },
     ],
   },
 ])
