@@ -65,11 +65,23 @@ const userSchema = new mongoose.Schema({
     index: true
   },
 
-  // ============ CODICE CLIENTE (assegnato dal consulente) ============
+  // ============ CODICE CLIENTE E LICENZA TAXI ============
   codiceCliente: {
     type: String,
     trim: true,
     maxlength: 50
+  },
+
+  numeroLicenza: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+
+  comuneRilascioLicenza: {
+    type: String,
+    trim: true,
+    maxlength: 100
   },
 
   // ============ DATI FISCALI (solo clienti) ============
