@@ -107,7 +107,7 @@ export default function ClienteDetailPage() {
         api.get(`/users/clienti/${id}`),
         api.get('/dashboard/cliente', { params: { anno, userId: id } }),
       ])
-      const c = clienteRes.data.data
+      const c = clienteRes.data.data?.cliente || clienteRes.data.data
       setCliente(c)
       setDashboard(dashRes.data.data)
       // Popola il context per la Topbar (veicolo caricato dopo, in fetchVeicoli)
