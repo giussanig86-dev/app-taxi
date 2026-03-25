@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const StatoLog = require('../models/StatoLog');
+const Notifica = require('../models/Notifica');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 
@@ -62,4 +64,41 @@ exports.updateCliente = catchAsync(async (req, res, next) => {
   );
   if (!cliente) return next(new AppError('Cliente non trovato.', 404));
   res.status(200).json({ status: 'success', data: { cliente } });
+});
+
+// ── Cambio stato cliente (consulente) ─────────────────────────────────────────
+exports.cambiaStato = catchAsync(async (req, res, next) => {
+  const { stato, motivazione, dataVariazione } = req.body;
+  if (!['attivo', 'sospeso', 'cessato'].includes(stato)) {
+    return next(new AppError('Stato non valido.', 400));
+  }
+  const cliente = await User.findOneAndUpdate(
+    { _id: req.params.id, consulenteId: req.user._id, ruolo: 'cliente' },
+    { statoCliente: stato },
+    { new: true }
+  );
+  if (!cliente) return next(new AppError('Cliente non trovato.', 404));
+
+  await StatoLog.create({
+    userId: cliente._id,
+    stato,
+    dataVariazione: dataVariazione ? new Date(dataVariazione) : new Date(),
+    motivazione: motivazione || '',
+    cambiatoDa: req.user._id
+  });
+
+  res.json({ status: 'success', data: { cliente } });
+});
+
+// ── Storico stato cliente ─────────────────────────────────────────────────────
+exports.getStoricoStato = catchAsync(async (req, res, next) => {
+  const cliente = await User.findOne({ _id: req.params.id, consulenteId: req.user._id, ruolo: 'cliente' });
+  if (!cliente) return next(new AppError('Cliente non trovato.', 404));
+
+  const storico = await StatoLog
+    .find({ userId: req.params.id })
+    .sort({ dataVariazione: -1 })
+    .populate('cambiatoDa', 'nome cognome');
+
+  res.json({ status: 'success', data: { storico } });
 });

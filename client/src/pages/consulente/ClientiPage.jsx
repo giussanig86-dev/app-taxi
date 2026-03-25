@@ -100,7 +100,18 @@ export default function ClientiPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">{c.nome} {c.cognome}</h3>
-                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
+                    <div className="flex items-center gap-1.5">
+                      {c.statoCliente === 'sospeso' && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Sospeso" />
+                      )}
+                      {c.statoCliente === 'cessato' && (
+                        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" title="Cessato" />
+                      )}
+                      {(!c.statoCliente || c.statoCliente === 'attivo') && (
+                        <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" title="Attivo" />
+                      )}
+                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
                   <div className="mt-2 space-y-1">
                     {c.email && (

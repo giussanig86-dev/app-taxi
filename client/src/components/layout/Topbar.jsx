@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { Menu, LogOut, User, ChevronDown, LayoutDashboard, Car } from 'lucide-react'
+import { Menu, LogOut, User, ChevronDown, LayoutDashboard, Car, Bell, X, CheckCheck } from 'lucide-react'
 import { useNavigate, NavLink } from 'react-router-dom'
 import api from '@/lib/api'
 import { useActiveCliente } from '@/contexts/ActiveClienteContext'
@@ -11,6 +11,10 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [targaAttiva, setTargaAttiva] = useState(null)
   const { clienteAttivo } = useActiveCliente()
+  const [bellOpen, setBellOpen] = useState(false)
+  const [notifiche, setNotifiche] = useState([])
+  const [nonLette, setNonLette] = useState(0)
+  const bellRef = useRef(null)
 
   // Fetch veicolo attivo una sola volta al mount (solo per il cliente)
   useEffect(() => {
@@ -19,6 +23,47 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
       .then(r => setTargaAttiva(r.data.data?.veicolo?.targa || null))
       .catch(() => {})
   }, [isCliente])
+
+  // Fetch notifiche per consulente
+  useEffect(() => {
+    if (!isConsulente) return
+    fetchNotifiche()
+    const iv = setInterval(fetchNotifiche, 60000)
+    return () => clearInterval(iv)
+  }, [isConsulente])
+
+  async function fetchNotifiche() {
+    try {
+      const res = await api.get('/notifiche')
+      setNotifiche(res.data.data?.notifiche || [])
+      setNonLette(res.data.data?.nonLette || 0)
+    } catch {}
+  }
+
+  async function handleSegnaLetta(notificaId) {
+    try {
+      await api.patch(`/notifiche/${notificaId}/letta`)
+      setNotifiche(prev => prev.map(n => n._id === notificaId ? { ...n, letta: true } : n))
+      setNonLette(prev => Math.max(0, prev - 1))
+    } catch {}
+  }
+
+  async function handleSegnaLetteTutte() {
+    try {
+      await api.patch('/notifiche/leggi-tutte')
+      setNotifiche(prev => prev.map(n => ({ ...n, letta: true })))
+      setNonLette(0)
+    } catch {}
+  }
+
+  async function handleDeleteNotifica(notificaId) {
+    try {
+      await api.delete(`/notifiche/${notificaId}`)
+      const n = notifiche.find(x => x._id === notificaId)
+      setNotifiche(prev => prev.filter(x => x._id !== notificaId))
+      if (n && !n.letta) setNonLette(prev => Math.max(0, prev - 1))
+    } catch {}
+  }
 
   // Dati da mostrare nell'info strip: cliente loggato o cliente selezionato dal consulente
   const stripData = isCliente
@@ -77,7 +122,74 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
           </NavLink>
         )}
 
-        {/* Right: user menu */}
+        {/* Right: bell + user menu */}
+        <div className="flex items-center gap-2">
+
+        {/* Bell notifiche (solo consulente) */}
+        {isConsulente && (
+          <div className="relative" ref={bellRef}>
+            <button
+              onClick={() => setBellOpen(o => !o)}
+              className="relative p-2 rounded-lg hover:bg-gray-100 text-text-secondary transition-colors"
+              title="Notifiche"
+            >
+              <Bell className="w-5 h-5" />
+              {nonLette > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {nonLette > 9 ? '9+' : nonLette}
+                </span>
+              )}
+            </button>
+
+            {bellOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="font-semibold text-sm text-gray-800">Notifiche</span>
+                    {nonLette > 0 && (
+                      <button onClick={handleSegnaLetteTutte} className="text-xs text-primary flex items-center gap-1 hover:underline">
+                        <CheckCheck className="w-3.5 h-3.5" /> Segna tutte lette
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                    {notifiche.length === 0 ? (
+                      <p className="text-center text-sm text-gray-400 py-8">Nessuna notifica</p>
+                    ) : notifiche.map(n => (
+                      <div key={n._id} className={`px-4 py-3 hover:bg-gray-50 transition-colors ${n.letta ? 'opacity-60' : ''}`}>
+                        <div className="flex items-start gap-2">
+                          {!n.letta && <span className="mt-1.5 w-2 h-2 bg-primary rounded-full shrink-0" />}
+                          {n.letta && <span className="mt-1.5 w-2 h-2 shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800">{n.titolo}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.messaggio}</p>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <span className="text-[10px] text-gray-300">{new Date(n.createdAt).toLocaleDateString('it-IT')}</span>
+                              {!n.letta && (
+                                <button onClick={() => handleSegnaLetta(n._id)} className="text-[10px] text-primary hover:underline">Segna letta</button>
+                              )}
+                              {n.clienteId && (
+                                <button
+                                  onClick={() => { navigate(`/consulente/clienti/${n.clienteId._id || n.clienteId}`); setBellOpen(false) }}
+                                  className="text-[10px] text-primary hover:underline">Vai al cliente</button>
+                              )}
+                            </div>
+                          </div>
+                          <button onClick={() => handleDeleteNotifica(n._id)} className="p-1 hover:bg-gray-100 rounded text-gray-300 hover:text-gray-500 shrink-0">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* User menu */}
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}

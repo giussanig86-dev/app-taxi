@@ -13,8 +13,9 @@ router.use('/versamenti', require('./versamenti.routes'));
 router.use('/chilometri', require('./chilometri.routes'));
 router.use('/dashboard', require('./dashboard.routes'));
 router.use('/users', require('./users.routes'));
-router.use('/documenti', require('./documenti.routes'));
-router.use('/veicoli',   require('./veicoli.routes'));
+router.use('/documenti',  require('./documenti.routes'));
+router.use('/veicoli',    require('./veicoli.routes'));
+router.use('/notifiche',  require('./notifiche.routes'));
 router.use('/admin', require('./admin.routes'));
 
 module.exports = router;
