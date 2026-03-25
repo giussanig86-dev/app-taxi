@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, TrendingUp, Receipt, FileText, Landmark,
-  Calculator, Plus, Trash2, Edit3, Upload, CheckCircle
+  Calculator, Plus, Trash2, Edit3, Upload, CheckCircle,
+  FolderOpen, Download, FileSpreadsheet, Image, AlertCircle, ChevronDown
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
@@ -44,6 +45,20 @@ export default function ClienteDetailPage() {
   const [editingVersamento, setEditingVersamento] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
+  // Documenti
+  const [documenti, setDocumenti] = useState(null)
+  const [docUploading, setDocUploading] = useState(false)
+  const [docTipo, setDocTipo] = useState('patente')
+  const [docNote, setDocNote] = useState('')
+  const [docFile, setDocFile] = useState(null)
+  const [docError, setDocError] = useState('')
+  const fileInputRef = useRef(null)
+
+  // Export corrispettivi
+  const [showExport, setShowExport] = useState(false)
+  const [exportMese, setExportMese] = useState('')
+  const [exporting, setExporting] = useState(false)
+
   useEffect(() => { fetchDashboard() }, [id, anno])
 
   useEffect(() => {
@@ -51,10 +66,12 @@ export default function ClienteDetailPage() {
     if (activeTab === 'costi' && costi === null) loadTab('costi')
     if (activeTab === 'versamenti' && versamenti === null) loadTab('versamenti')
     if (activeTab === 'fatture' && fatture === null) loadTab('fatture')
-  }, [activeTab, corrispettivi, costi, versamenti, fatture])
+    if (activeTab === 'documenti' && documenti === null) fetchDocumenti()
+  }, [activeTab, corrispettivi, costi, versamenti, fatture, documenti])
 
   useEffect(() => {
     setCorrispettivi(null); setCosti(null); setVersamenti(null); setFatture(null)
+    setShowExport(false)
   }, [anno])
 
   async function fetchDashboard() {
@@ -113,6 +130,190 @@ export default function ClienteDetailPage() {
     if (tab === 'fatture') setFatture(null)
   }
 
+  // ── Documenti ─────────────────────────────────────────────────────────
+  const TIPI_DOC = [
+    { value: 'patente',            label: 'Patente di Guida' },
+    { value: 'ci',                 label: "Carta d'Identità" },
+    { value: 'cf',                 label: 'Codice Fiscale' },
+    { value: 'kb',                 label: 'KB (Kartellino)' },
+    { value: 'iscrizione_ruolo',   label: 'Iscrizione a Ruolo' },
+    { value: 'visura',             label: 'Visura Camerale' },
+    { value: 'qr_agenzia_entrate', label: 'QR Agenzia delle Entrate' },
+    { value: 'copia_licenza',      label: 'Copia Licenza' },
+    { value: 'altro',              label: 'Altro' },
+  ]
+  const TIPO_DOC_LABEL = Object.fromEntries(TIPI_DOC.map(t => [t.value, t.label]))
+
+  function fmtBytes(b) {
+    if (b < 1024) return `${b} B`
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+    return `${(b / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  async function fetchDocumenti() {
+    try {
+      const res = await api.get('/documenti', { params: { userId: id } })
+      setDocumenti(res.data.data?.documenti || [])
+    } catch (err) {
+      console.error('Errore caricamento documenti:', err)
+      setDocumenti([])
+    }
+  }
+
+  function handleDocFileChange(e) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (f.size > 5 * 1024 * 1024) { setDocError('File troppo grande (max 5 MB)'); setDocFile(null); return }
+    const ok = ['image/jpeg','image/jpg','image/png','image/webp','application/pdf']
+    if (!ok.includes(f.type)) { setDocError('Formato non supportato (JPG, PNG, WEBP, PDF)'); setDocFile(null); return }
+    setDocError('')
+    setDocFile(f)
+  }
+
+  async function handleUploadDoc(e) {
+    e.preventDefault()
+    if (!docFile) { setDocError('Seleziona un file.'); return }
+    setDocUploading(true)
+    setDocError('')
+    try {
+      const fd = new FormData()
+      fd.append('file', docFile)
+      fd.append('tipo', docTipo)
+      fd.append('note', docNote)
+      await api.post(`/documenti/upload?userId=${id}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setDocFile(null)
+      setDocNote('')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      setDocumenti(null) // trigger reload
+    } catch (err) {
+      setDocError(err.response?.data?.message || 'Errore upload')
+    } finally {
+      setDocUploading(false)
+    }
+  }
+
+  async function handleDeleteDoc(docId) {
+    if (!confirm('Eliminare questo documento?')) return
+    try {
+      await api.delete(`/documenti/${docId}?userId=${id}`)
+      setDocumenti(prev => (prev || []).filter(d => d._id !== docId))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore eliminazione')
+    }
+  }
+
+  function handleDownloadDoc(doc) {
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const url = `${baseUrl}/api/v1/documenti/${doc._id}/download?userId=${id}`
+    const token = localStorage.getItem('token')
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = doc.originalName
+        link.click()
+        URL.revokeObjectURL(blobUrl)
+      })
+      .catch(() => alert('Errore download'))
+  }
+
+  // ── Export Registro Corrispettivi ─────────────────────────────────────
+  const MESI_EXPORT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
+
+  async function handleExportExcel() {
+    setExporting(true)
+    try {
+      const params = { anno, userId: id }
+      if (exportMese) params.mese = exportMese
+      const token = localStorage.getItem('token')
+      const baseUrl = import.meta.env.VITE_API_URL || ''
+      const qs = new URLSearchParams(params).toString()
+      const res = await fetch(`${baseUrl}/api/v1/corrispettivi/export/registro?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Errore export')
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename="([^"]+)"/)
+      const filename = match ? match[1] : `registro-${anno}.xlsx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert("Errore durante l'esportazione Excel")
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  function handleExportPDF() {
+    const mese = exportMese ? parseInt(exportMese) : null
+    const periodoLabel = mese ? `${MESI_EXPORT[mese - 1]} ${anno}` : `Anno ${anno}`
+    const lista = (corrispettivi || [])
+      .filter(c => !mese || new Date(c.data).getMonth() === mese - 1)
+      .sort((a, b) => new Date(a.data) - new Date(b.data))
+    const totaleE = lista.reduce((s, c) => s + c.importo, 0)
+    const giorniL = new Set(lista.map(c => new Date(c.data).toLocaleDateString('it-IT'))).size
+    const nomeCliente = cliente ? `${cliente.nome} ${cliente.cognome}` : ''
+
+    const righe = lista.map((c, i) => `<tr>
+      <td>${i+1}</td>
+      <td>${new Date(c.data).toLocaleDateString('it-IT')}</td>
+      <td style="text-align:right">${c.importo.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</td>
+      <td>${c.metodoPagamento?.charAt(0).toUpperCase()+c.metodoPagamento?.slice(1)||''}</td>
+      <td>${c.numerazione||''}</td>
+      <td>${c.note||''}</td>
+    </tr>`).join('')
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"/>
+<title>Registro Corrispettivi – ${periodoLabel}</title>
+<style>
+@page{size:A4;margin:20mm}body{font-family:Arial,sans-serif;font-size:11px;color:#222}
+h1{font-size:16px;margin-bottom:4px}.subtitle{color:#555;margin-bottom:16px}
+.info-box{border:1px solid #ddd;padding:10px 14px;border-radius:4px;margin-bottom:20px}
+.info-box p{margin:3px 0}table{width:100%;border-collapse:collapse;margin-bottom:16px}
+th{background:#1a1a2e;color:#fff;padding:7px 8px;text-align:left;font-size:10px}
+td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{background:#f9f9f9}
+.total-row td{font-weight:bold;background:#f0f4ff;border-top:2px solid #aaa}
+.summary{display:flex;gap:20px;margin-top:16px}
+.summary-box{flex:1;border:1px solid #ddd;padding:10px;border-radius:4px;text-align:center}
+.summary-box strong{display:block;font-size:18px;color:#1a1a2e}
+.footer{margin-top:30px;font-size:9px;color:#999;text-align:center}
+@media print{button{display:none!important}}
+</style></head><body>
+<h1>REGISTRO CORRISPETTIVI</h1>
+<p class="subtitle">Periodo: ${periodoLabel}</p>
+<div class="info-box">
+<p><strong>Titolare:</strong> ${nomeCliente}</p>
+<p><strong>Data generazione:</strong> ${new Date().toLocaleString('it-IT')}</p>
+<p><strong>Registrazioni:</strong> ${lista.length} · <strong>Giorni lavorati:</strong> ${giorniL}</p>
+</div>
+<table><thead><tr><th>N.</th><th>Data</th><th>Importo</th><th>Metodo</th><th>Numerazione</th><th>Note</th></tr></thead>
+<tbody>${righe}<tr class="total-row"><td colspan="2">TOTALE</td>
+<td style="text-align:right">${totaleE.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</td>
+<td colspan="3"></td></tr></tbody></table>
+<div class="summary">
+<div class="summary-box"><span>Totale Incassato</span><strong>${totaleE.toLocaleString('it-IT',{style:'currency',currency:'EUR'})}</strong></div>
+<div class="summary-box"><span>Giorni Lavorati</span><strong>${giorniL}</strong></div>
+<div class="summary-box"><span>N. Registrazioni</span><strong>${lista.length}</strong></div>
+<div class="summary-box"><span>Media Giornaliera</span><strong>${giorniL>0?(totaleE/giorniL).toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'–'}</strong></div>
+</div>
+<div class="footer">Documento generato da App Taxi · ${new Date().toLocaleDateString('it-IT')}</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     try {
@@ -153,6 +354,7 @@ export default function ClienteDetailPage() {
     { key: 'costi',         label: 'Costi',         icon: Receipt },
     { key: 'fatture',       label: 'Fatture',       icon: FileText },
     { key: 'versamenti',    label: 'Versamenti',    icon: Landmark },
+    { key: 'documenti',     label: 'Documenti',     icon: FolderOpen },
   ]
 
   return (
@@ -290,6 +492,38 @@ export default function ClienteDetailPage() {
               </table>
             </div>
           )}
+          {/* Export registro */}
+          <div className="border-t border-gray-50">
+            <button
+              onClick={() => setShowExport(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><Download className="w-3.5 h-3.5 text-primary" /> Scarica Registro Corrispettivi</span>
+              <ChevronDown className={cn('w-3.5 h-3.5 text-gray-400 transition-transform', showExport && 'rotate-180')} />
+            </button>
+            {showExport && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="flex flex-wrap items-end gap-2">
+                  <select
+                    value={exportMese}
+                    onChange={(e) => setExportMese(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Anno {anno} (completo)</option>
+                    {MESI_EXPORT.map((m, i) => <option key={i} value={i + 1}>{m} {anno}</option>)}
+                  </select>
+                  <button onClick={handleExportExcel} disabled={exporting}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:opacity-50">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />{exporting ? 'Export...' : 'Excel'}
+                  </button>
+                  <button onClick={handleExportPDF}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700">
+                    <FileText className="w-3.5 h-3.5" /> PDF / Stampa
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -459,6 +693,94 @@ export default function ClienteDetailPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Documenti */}
+      {activeTab === 'documenti' && (
+        <div className="space-y-5 max-w-2xl">
+
+          {/* Upload */}
+          <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+            <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+              <Upload className="w-4 h-4 text-primary" /> Carica Documento per {cliente?.nome} {cliente?.cognome}
+            </h3>
+            <p className="text-xs text-gray-500">Formati: JPG, PNG, WEBP, PDF · Max 5 MB</p>
+            <form onSubmit={handleUploadDoc} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Documento *</label>
+                <select value={docTipo} onChange={(e) => setDocTipo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  {TIPI_DOC.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div
+                className="border-2 border-dashed border-gray-200 rounded-lg p-5 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-7 h-7 text-gray-300 mx-auto mb-1" />
+                {docFile
+                  ? <p className="text-sm font-medium text-primary">{docFile.name} ({fmtBytes(docFile.size)})</p>
+                  : <p className="text-xs text-gray-400">Clicca per selezionare il file</p>
+                }
+                <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" className="hidden" onChange={handleDocFileChange} />
+              </div>
+              <input type="text" value={docNote} onChange={(e) => setDocNote(e.target.value)}
+                placeholder="Note (opzionale, es. scadenza)"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              {docError && (
+                <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {docError}
+                </div>
+              )}
+              <button type="submit" disabled={docUploading || !docFile}
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                <Upload className="w-4 h-4" />{docUploading ? 'Caricamento...' : 'Carica'}
+              </button>
+            </form>
+          </div>
+
+          {/* Lista */}
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-50">
+              <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-primary" /> Documenti Caricati
+              </h3>
+            </div>
+            {documenti === null ? (
+              <div className="p-8 text-center text-xs text-gray-400">Caricamento...</div>
+            ) : documenti.length === 0 ? (
+              <div className="p-8 text-center">
+                <FolderOpen className="w-10 h-10 mx-auto mb-2 text-gray-200" />
+                <p className="text-sm text-gray-400">Nessun documento caricato</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {documenti.map((doc) => (
+                  <li key={doc._id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/50">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      {doc.mimeType?.startsWith('image/') ? <Image className="w-3.5 h-3.5 text-primary" /> : <FileText className="w-3.5 h-3.5 text-primary" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{TIPO_DOC_LABEL[doc.tipo] || doc.tipo}</p>
+                      <p className="text-xs text-gray-400 truncate">{doc.originalName} · {fmtBytes(doc.size)}{doc.note ? ` · ${doc.note}` : ''}</p>
+                      <p className="text-xs text-gray-300">{new Date(doc.createdAt).toLocaleDateString('it-IT')}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleDownloadDoc(doc)} title="Scarica"
+                        className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteDoc(doc._id)} title="Elimina"
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
