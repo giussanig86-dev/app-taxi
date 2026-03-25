@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Save, User, Shield, Calculator, Info,
-  FolderOpen, Upload, Trash2, Download, FileText, Image, AlertCircle, CheckCircle
+  FolderOpen, Upload, Trash2, Download, FileText, Image, AlertCircle, CheckCircle,
+  Car, History, Plus, Archive
 } from 'lucide-react'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,31 @@ const TIPI_DOCUMENTO = [
 ]
 
 const TIPO_LABEL = Object.fromEntries(TIPI_DOCUMENTO.map(t => [t.value, t.label]))
+
+const ALIMENTAZIONI = [
+  { value: 'benzina',        label: 'Benzina' },
+  { value: 'diesel',         label: 'Diesel' },
+  { value: 'gpl',            label: 'GPL' },
+  { value: 'metano',         label: 'Metano' },
+  { value: 'ibrido_benzina', label: 'Ibrido Benzina' },
+  { value: 'ibrido_diesel',  label: 'Ibrido Diesel' },
+  { value: 'elettrico',      label: 'Elettrico' },
+  { value: 'idrogeno',       label: 'Idrogeno' },
+  { value: 'altro',          label: 'Altro' },
+]
+
+const MOTIVI_FINE_USO = [
+  { value: 'vendita',      label: 'Vendita' },
+  { value: 'permuta',      label: 'Permuta' },
+  { value: 'rottamazione', label: 'Rottamazione' },
+  { value: 'altro',        label: 'Altro' },
+]
+
+const VUOTO_VEICOLO = {
+  targa: '', marca: '', modello: '',
+  annoImmatricolazione: '', alimentazione: 'benzina',
+  colore: '', note: '', dataInizioUso: '',
+}
 
 function formatBytes(b) {
   if (b < 1024) return `${b} B`
@@ -78,12 +104,25 @@ export default function ProfiloPage() {
   const [docError, setDocError] = useState('')
   const fileInputRef = useRef(null)
 
+  // ── Veicolo state ─────────────────────────────────────────────────────────
+  const [veicoli, setVeicoli] = useState([])
+  const [veicoloAttivo, setVeicoloAttivo] = useState(null)
+  const [veicoloLoading, setVeicoloLoading] = useState(false)
+  const [veicoloForm, setVeicoloForm] = useState(VUOTO_VEICOLO)
+  const [editingVeicolo, setEditingVeicolo] = useState(false) // true = modifica attivo
+  const [nuovoVeicolo, setNuovoVeicolo] = useState(false)    // true = form nuovo veicolo
+  const [savingVeicolo, setSavingVeicolo] = useState(false)
+  const [storicizzaForm, setStoricizzaForm] = useState({ data: '', motivo: 'vendita' })
+  const [showStoricizza, setShowStoricizza] = useState(false)
+  const [veicoloSuccess, setVeicoloSuccess] = useState('')
+
   useEffect(() => {
     fetchProfilo()
   }, [])
 
   useEffect(() => {
     if (activeTab === 'documenti') fetchDocumenti()
+    if (activeTab === 'veicolo') fetchVeicoli()
   }, [activeTab])
 
   async function fetchProfilo() {
@@ -259,10 +298,70 @@ export default function ProfiloPage() {
       .catch(() => alert('Errore download'))
   }
 
+  // ── Veicolo handlers ──────────────────────────────────────────────────────
+  async function fetchVeicoli() {
+    setVeicoloLoading(true)
+    try {
+      const res = await api.get('/veicoli')
+      const list = res.data.data?.veicoli || []
+      setVeicoli(list)
+      setVeicoloAttivo(list.find(v => v.attivo) || null)
+    } catch (err) {
+      console.error('Errore caricamento veicoli:', err)
+    } finally {
+      setVeicoloLoading(false)
+    }
+  }
+
+  async function handleSaveVeicolo(e) {
+    e.preventDefault()
+    setSavingVeicolo(true)
+    setVeicoloSuccess('')
+    try {
+      if (editingVeicolo && veicoloAttivo) {
+        const res = await api.put(`/veicoli/${veicoloAttivo._id}`, veicoloForm)
+        setVeicoloAttivo(res.data.data.veicolo)
+        setEditingVeicolo(false)
+      } else {
+        await api.post('/veicoli', veicoloForm)
+        setNuovoVeicolo(false)
+        fetchVeicoli()
+      }
+      setVeicoloSuccess('Veicolo salvato')
+      setTimeout(() => setVeicoloSuccess(''), 3000)
+    } catch (err) {
+      alert(err.response?.data?.message || err.response?.data?.messaggio || 'Errore salvataggio')
+    } finally {
+      setSavingVeicolo(false)
+    }
+  }
+
+  async function handleStoricizza(e) {
+    e.preventDefault()
+    if (!storicizzaForm.data) { alert('Inserisci la data di fine utilizzo.'); return }
+    setSavingVeicolo(true)
+    try {
+      await api.post(`/veicoli/${veicoloAttivo._id}/storicizza`, {
+        dataFineUso: storicizzaForm.data,
+        motivoFineUso: storicizzaForm.motivo,
+      })
+      setShowStoricizza(false)
+      setStoricizzaForm({ data: '', motivo: 'vendita' })
+      setNuovoVeicolo(true)
+      setVeicoloForm(VUOTO_VEICOLO)
+      fetchVeicoli()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore storicizzazione')
+    } finally {
+      setSavingVeicolo(false)
+    }
+  }
+
   const tabs = [
     { key: 'profilo',   label: 'Profilo',      icon: User },
     ...(isCliente ? [
       { key: 'fiscale',   label: 'Dati Fiscali', icon: Calculator },
+      { key: 'veicolo',   label: 'Veicolo',      icon: Car },
       { key: 'documenti', label: 'Documenti',    icon: FolderOpen },
     ] : []),
     { key: 'sicurezza', label: 'Sicurezza',    icon: Shield },
@@ -429,6 +528,242 @@ export default function ProfiloPage() {
             <Save className="w-4 h-4" />{saving ? 'Salvataggio...' : 'Salva Dati Fiscali'}
           </button>
         </form>
+      )}
+
+      {/* Tab Veicolo */}
+      {activeTab === 'veicolo' && (
+        <div className="space-y-6 max-w-2xl">
+          {veicoloSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-medium">
+              <CheckCircle className="w-4 h-4 shrink-0" /> {veicoloSuccess}
+            </div>
+          )}
+
+          {veicoloLoading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Caricamento...</div>
+          ) : (
+            <>
+              {/* Veicolo attivo */}
+              {veicoloAttivo && !editingVeicolo && !nuovoVeicolo && (
+                <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <Car className="w-4 h-4 text-primary" /> Veicolo Attuale
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Attivo</span>
+                    </h3>
+                    <button
+                      onClick={() => { setVeicoloForm({ ...veicoloAttivo, annoImmatricolazione: veicoloAttivo.annoImmatricolazione || '', dataInizioUso: veicoloAttivo.dataInizioUso ? veicoloAttivo.dataInizioUso.slice(0,10) : '' }); setEditingVeicolo(true) }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Modifica
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    {[
+                      { label: 'Targa',            value: veicoloAttivo.targa },
+                      { label: 'Marca',            value: veicoloAttivo.marca },
+                      { label: 'Modello',          value: veicoloAttivo.modello },
+                      { label: 'Anno imm.',        value: veicoloAttivo.annoImmatricolazione },
+                      { label: 'Alimentazione',    value: ALIMENTAZIONI.find(a => a.value === veicoloAttivo.alimentazione)?.label },
+                      { label: 'Colore',           value: veicoloAttivo.colore || '—' },
+                      { label: 'In uso dal',       value: veicoloAttivo.dataInizioUso ? new Date(veicoloAttivo.dataInizioUso).toLocaleDateString('it-IT') : '—' },
+                    ].map(r => (
+                      <div key={r.label}>
+                        <p className="text-xs text-gray-400">{r.label}</p>
+                        <p className="font-medium text-gray-800">{r.value || '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {veicoloAttivo.note && (
+                    <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">{veicoloAttivo.note}</p>
+                  )}
+
+                  {/* Storicizza */}
+                  {!showStoricizza ? (
+                    <button
+                      onClick={() => setShowStoricizza(true)}
+                      className="flex items-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 bg-orange-50 rounded-lg text-sm font-medium hover:bg-orange-100 transition-colors"
+                    >
+                      <Archive className="w-4 h-4" /> Storicizza (Vendita / Permuta)
+                    </button>
+                  ) : (
+                    <form onSubmit={handleStoricizza} className="border border-orange-200 rounded-lg p-4 space-y-3 bg-orange-50">
+                      <p className="text-sm font-medium text-orange-700 flex items-center gap-2">
+                        <Archive className="w-4 h-4" /> Storicizza Veicolo
+                      </p>
+                      <p className="text-xs text-orange-600">
+                        Il veicolo verrà archiviato nello storico. Potrai poi inserire il nuovo automezzo.
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Data fine utilizzo *</label>
+                          <input type="date" required value={storicizzaForm.data}
+                            onChange={e => setStoricizzaForm({ ...storicizzaForm, data: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Motivo</label>
+                          <select value={storicizzaForm.motivo}
+                            onChange={e => setStoricizzaForm({ ...storicizzaForm, motivo: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+                            {MOTIVI_FINE_USO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={savingVeicolo}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50">
+                          {savingVeicolo ? 'Archiviazione...' : 'Conferma Storicizzazione'}
+                        </button>
+                        <button type="button" onClick={() => setShowStoricizza(false)}
+                          className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+                          Annulla
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* Nessun veicolo attivo → bottone aggiungi o form diretto */}
+              {!veicoloAttivo && !nuovoVeicolo && !editingVeicolo && (
+                <div className="bg-white rounded-xl border border-dashed border-gray-200 p-8 text-center">
+                  <Car className="w-10 h-10 mx-auto mb-3 text-gray-200" />
+                  <p className="text-sm text-gray-500 mb-4">Nessun veicolo registrato</p>
+                  <button
+                    onClick={() => { setVeicoloForm(VUOTO_VEICOLO); setNuovoVeicolo(true) }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mx-auto"
+                  >
+                    <Plus className="w-4 h-4" /> Aggiungi Veicolo
+                  </button>
+                </div>
+              )}
+
+              {/* Form nuovo veicolo / modifica */}
+              {(nuovoVeicolo || editingVeicolo) && (
+                <form onSubmit={handleSaveVeicolo} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <Car className="w-4 h-4 text-primary" />
+                    {editingVeicolo ? 'Modifica Veicolo' : 'Nuovo Veicolo'}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Targa *</label>
+                      <input required type="text" value={veicoloForm.targa}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, targa: e.target.value.toUpperCase() })}
+                        placeholder="AB123CD"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Alimentazione</label>
+                      <select value={veicoloForm.alimentazione}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, alimentazione: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        {ALIMENTAZIONI.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
+                      <input required type="text" value={veicoloForm.marca}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, marca: e.target.value })}
+                        placeholder="Toyota"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Modello *</label>
+                      <input required type="text" value={veicoloForm.modello}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, modello: e.target.value })}
+                        placeholder="Prius"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Anno immatricolazione</label>
+                      <input type="number" min="1950" max={new Date().getFullYear() + 1} value={veicoloForm.annoImmatricolazione}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, annoImmatricolazione: e.target.value })}
+                        placeholder="2020"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Colore</label>
+                      <input type="text" value={veicoloForm.colore}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, colore: e.target.value })}
+                        placeholder="Bianco"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">In uso dal</label>
+                      <input type="date" value={veicoloForm.dataInizioUso}
+                        onChange={e => setVeicoloForm({ ...veicoloForm, dataInizioUso: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                    <input type="text" value={veicoloForm.note}
+                      onChange={e => setVeicoloForm({ ...veicoloForm, note: e.target.value })}
+                      placeholder="Es. Taxi comunale n. 42"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={savingVeicolo}
+                      className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
+                      <Save className="w-4 h-4" />{savingVeicolo ? 'Salvataggio...' : 'Salva Veicolo'}
+                    </button>
+                    {(editingVeicolo || nuovoVeicolo) && (
+                      <button type="button"
+                        onClick={() => { setEditingVeicolo(false); setNuovoVeicolo(false) }}
+                        className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+                        Annulla
+                      </button>
+                    )}
+                  </div>
+                </form>
+              )}
+
+              {/* Storico veicoli precedenti */}
+              {veicoli.filter(v => !v.attivo).length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
+                    <History className="w-4 h-4 text-gray-400" />
+                    <h3 className="font-semibold text-gray-800 text-sm">Storico Veicoli</h3>
+                  </div>
+                  <ul className="divide-y divide-gray-50">
+                    {veicoli.filter(v => !v.attivo).map(v => (
+                      <li key={v._id} className="px-5 py-4 flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">
+                            {v.marca} {v.modello}
+                            <span className="ml-2 font-mono text-xs text-gray-400">{v.targa}</span>
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {ALIMENTAZIONI.find(a => a.value === v.alimentazione)?.label}
+                            {v.annoImmatricolazione ? ` · ${v.annoImmatricolazione}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {v.dataFineUso && (
+                            <p className="text-xs text-gray-400">
+                              Fine uso: <span className="font-medium">{new Date(v.dataFineUso).toLocaleDateString('it-IT')}</span>
+                            </p>
+                          )}
+                          {v.motivoFineUso && (
+                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                              {MOTIVI_FINE_USO.find(m => m.value === v.motivoFineUso)?.label || v.motivoFineUso}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* Tab Documenti */}

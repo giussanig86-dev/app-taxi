@@ -12,6 +12,7 @@ const AuditLog = require('./AuditLog');
 const ScaglioneIrpef = require('./ScaglioneIrpef');
 const SdiSyncLog = require('./SdiSyncLog');
 const Documento = require('./Documento');
+const Veicolo = require('./Veicolo');
 
 module.exports = {
   User,
@@ -24,4 +25,5 @@ module.exports = {
   ScaglioneIrpef,
   SdiSyncLog,
   Documento,
+  Veicolo,
 };
