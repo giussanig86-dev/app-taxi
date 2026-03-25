@@ -233,6 +233,7 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
             </>
           )}
         </div>
+        </div>
       </div>
 
       {/* Info strip — cliente loggato O cliente selezionato dal consulente */}
