@@ -42,7 +42,7 @@ function DocIcon({ mimeType, className }) {
 }
 
 export default function ProfiloPage() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, isCliente } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('profilo')
@@ -253,8 +253,10 @@ export default function ProfiloPage() {
 
   const tabs = [
     { key: 'profilo',   label: 'Profilo',      icon: User },
-    { key: 'fiscale',   label: 'Dati Fiscali', icon: Calculator },
-    { key: 'documenti', label: 'Documenti',    icon: FolderOpen },
+    ...(isCliente ? [
+      { key: 'fiscale',   label: 'Dati Fiscali', icon: Calculator },
+      { key: 'documenti', label: 'Documenti',    icon: FolderOpen },
+    ] : []),
     { key: 'sicurezza', label: 'Sicurezza',    icon: Shield },
   ]
 
