@@ -18,7 +18,15 @@ exports.getAll = catchAsync(async (req, res) => {
 });
 
 exports.create = catchAsync(async (req, res) => {
-  const costo = await Costo.create({ ...req.body, userId: req.tenantUserId || req.user._id });
+  const isConsulente = req.user.ruolo === 'consulente'
+  const extra = isConsulente
+    ? { approvato: true, approvatoDa: req.user._id, dataApprovazione: new Date() }
+    : {}
+  const costo = await Costo.create({
+    ...req.body,
+    userId: req.tenantUserId || req.user._id,
+    ...extra,
+  });
   res.status(201).json({ status: 'success', data: { costo } });
 });
 
@@ -31,7 +39,8 @@ exports.getOne = catchAsync(async (req, res, next) => {
 exports.update = catchAsync(async (req, res, next) => {
   const costo = await Costo.findOne({ _id: req.params.id, ...req.tenantFilter });
   if (!costo) return next(new AppError('Costo non trovato.', 404));
-  if (costo.approvato) return next(new AppError('Non puoi modificare un costo approvato.', 400));
+  const isConsulente = req.user.ruolo === 'consulente'
+  if (costo.approvato && !isConsulente) return next(new AppError('Non puoi modificare un costo approvato.', 400));
   Object.assign(costo, req.body);
   await costo.save();
   res.status(200).json({ status: 'success', data: { costo } });
@@ -40,7 +49,8 @@ exports.update = catchAsync(async (req, res, next) => {
 exports.delete = catchAsync(async (req, res, next) => {
   const costo = await Costo.findOne({ _id: req.params.id, ...req.tenantFilter });
   if (!costo) return next(new AppError('Costo non trovato.', 404));
-  if (costo.approvato) return next(new AppError('Non puoi eliminare un costo approvato.', 400));
+  const isConsulente = req.user.ruolo === 'consulente'
+  if (costo.approvato && !isConsulente) return next(new AppError('Non puoi eliminare un costo approvato.', 400));
   await costo.deleteOne();
   res.status(204).json({ status: 'success', data: null });
 });

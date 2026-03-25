@@ -16,6 +16,7 @@ import ImportRegistroIvaModal from '@/components/shared/ImportRegistroIvaModal'
 import ImportCorrispettiviModal from '@/components/shared/ImportCorrispettiviModal'
 import VersamentoFormModal from '@/components/shared/VersamentoFormModal'
 import CorrispettivoFormModal from '@/components/shared/CorrispettivoFormModal'
+import CostoFormModal from '@/components/shared/CostoFormModal'
 import { useOutletContext } from 'react-router-dom'
 
 export default function ClienteDetailPage() {
@@ -34,6 +35,8 @@ export default function ClienteDetailPage() {
   const [tabLoading, setTabLoading] = useState(false)
 
   const [showImportCosti, setShowImportCosti] = useState(false)
+  const [showCostoForm, setShowCostoForm] = useState(false)
+  const [editingCosto, setEditingCosto] = useState(null)
   const [showImportCorrispettivi, setShowImportCorrispettivi] = useState(false)
   const [showCorrispettivoForm, setShowCorrispettivoForm] = useState(false)
   const [editingCorrispettivo, setEditingCorrispettivo] = useState(null)
@@ -114,9 +117,9 @@ export default function ClienteDetailPage() {
     if (!deleteTarget) return
     try {
       const { type, item } = deleteTarget
-      const endpoint = type === 'corrispettivo' ? 'corrispettivi' : 'versamenti'
+      const endpoint = type === 'corrispettivo' ? 'corrispettivi' : type === 'costo' ? 'costi' : 'versamenti'
       await api.delete(`/${endpoint}/${item._id}?userId=${id}`)
-      reloadTab(type === 'corrispettivo' ? 'corrispettivi' : 'versamenti')
+      reloadTab(type === 'corrispettivo' ? 'corrispettivi' : type === 'costo' ? 'costi' : 'versamenti')
       setDeleteTarget(null)
     } catch (err) {
       alert(err.response?.data?.messaggio || 'Errore eliminazione')
@@ -295,10 +298,16 @@ export default function ClienteDetailPage() {
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-medium text-gray-700">Costi {anno}</span>
-            <button onClick={() => setShowImportCosti(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
-              <Upload className="w-3.5 h-3.5" /> Importa Registro IVA
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowImportCosti(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium hover:bg-gray-200 transition-colors">
+                <Upload className="w-3.5 h-3.5" /> Importa Registro IVA
+              </button>
+              <button onClick={() => { setEditingCosto(null); setShowCostoForm(true) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Nuovo
+              </button>
+            </div>
           </div>
           {tabLoading && !costi ? (
             <div className="py-12 flex justify-center"><LoadingSpinner /></div>
@@ -312,6 +321,7 @@ export default function ClienteDetailPage() {
                     <th className="px-4 py-3 font-medium">Descrizione</th>
                     <th className="px-4 py-3 font-medium">Importo</th>
                     <th className="px-4 py-3 font-medium">Stato</th>
+                    <th className="px-4 py-3 text-right font-medium">Azioni</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -327,10 +337,22 @@ export default function ClienteDetailPage() {
                       <td className="px-4 py-3 max-w-[160px] truncate">{c.descrizione || '—'}</td>
                       <td className="px-4 py-3 font-semibold text-red-600">{formatEuro(c.importo)}</td>
                       <td className="px-4 py-3 text-xs">{c.statoApprovazione || (c.approvato ? 'approvato' : 'in_attesa')}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => { setEditingCosto(c); setShowCostoForm(true) }}
+                            className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteTarget({ type: 'costo', item: c })}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {(!costi || costi.length === 0) && (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nessun costo</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Nessun costo</td></tr>
                   )}
                 </tbody>
               </table>
@@ -441,6 +463,15 @@ export default function ClienteDetailPage() {
       )}
 
       {/* Modals */}
+      {showCostoForm && (
+        <CostoFormModal
+          clienteId={id}
+          costo={editingCosto}
+          onClose={() => setShowCostoForm(false)}
+          onSaved={() => reloadTab('costi')}
+        />
+      )}
+
       {showImportCosti && (
         <ImportRegistroIvaModal
           clienteId={id} anno={anno}
@@ -477,7 +508,7 @@ export default function ClienteDetailPage() {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title={`Elimina ${deleteTarget?.type === 'corrispettivo' ? 'Corrispettivo' : 'Versamento'}`}
+        title={`Elimina ${deleteTarget?.type === 'corrispettivo' ? 'Corrispettivo' : deleteTarget?.type === 'costo' ? 'Costo' : 'Versamento'}`}
         message="Sei sicuro di voler eliminare questo record? L'azione non può essere annullata."
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

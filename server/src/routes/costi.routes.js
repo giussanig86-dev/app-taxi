@@ -32,11 +32,11 @@ router.get('/stats/categorie', ctrl.statsCategorie);
 // CRUD
 router.route('/')
   .get(ctrl.getAll)
-  .post(authorize('cliente'), validateCosto, ctrl.create);
+  .post(validateCosto, ctrl.create);
 
 router.route('/:id')
   .get(validateObjectId, ctrl.getOne)
-  .put(authorize('cliente'), validateObjectId, ctrl.update)
-  .delete(authorize('cliente'), validateObjectId, ctrl.delete);
+  .put(validateObjectId, ctrl.update)
+  .delete(validateObjectId, ctrl.delete);
 
 module.exports = router;
