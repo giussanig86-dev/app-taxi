@@ -1,12 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { Menu, LogOut, User, ChevronDown, LayoutDashboard } from 'lucide-react'
+import { Menu, LogOut, User, ChevronDown, LayoutDashboard, Car } from 'lucide-react'
 import { useNavigate, NavLink } from 'react-router-dom'
+import api from '@/lib/api'
 
 export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
   const { user, logout, isCliente } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [targaAttiva, setTargaAttiva] = useState(null)
+
+  // Fetch veicolo attivo una sola volta al mount (solo per il cliente)
+  useEffect(() => {
+    if (!isCliente) return
+    api.get('/veicoli/attivo')
+      .then(r => setTargaAttiva(r.data.data?.veicolo?.targa || null))
+      .catch(() => {})
+  }, [isCliente])
 
   const currentYear = new Date().getFullYear()
   const anni = [currentYear, currentYear - 1, currentYear - 2]
@@ -104,6 +114,42 @@ export default function Topbar({ onMenuClick, anno, onAnnoChange }) {
           )}
         </div>
       </div>
+
+      {/* Info strip — solo per il cliente */}
+      {isCliente && (
+        <div className="flex items-center justify-between pb-1.5 -mt-1 gap-4 overflow-x-auto">
+          {/* Nome + codice cliente */}
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-sm font-semibold text-gray-800 truncate">
+              {user?.nome} {user?.cognome}
+            </span>
+            {user?.codiceCliente && (
+              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[11px] font-mono rounded shrink-0">
+                {user.codiceCliente}
+              </span>
+            )}
+          </div>
+
+          {/* Licenza + targa */}
+          <div className="flex items-center gap-3 shrink-0 text-[11px] text-gray-500">
+            {(user?.numeroLicenza || user?.comuneRilascioLicenza) && (
+              <span className="flex items-center gap-1">
+                <span className="text-gray-300">|</span>
+                Lic.
+                {user.numeroLicenza && <strong className="text-gray-700 ml-0.5">{user.numeroLicenza}</strong>}
+                {user.comuneRilascioLicenza && <span className="ml-1">– {user.comuneRilascioLicenza}</span>}
+              </span>
+            )}
+            {targaAttiva && (
+              <span className="flex items-center gap-1">
+                <span className="text-gray-300">|</span>
+                <Car className="w-3 h-3 text-gray-400" />
+                <strong className="font-mono text-gray-700">{targaAttiva}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   )
 }

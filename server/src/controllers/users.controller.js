@@ -8,7 +8,7 @@ exports.getProfilo = catchAsync(async (req, res) => {
 });
 
 exports.updateProfilo = catchAsync(async (req, res) => {
-  const campiPermessi = ['nome', 'cognome', 'telefono', 'indirizzo', 'codiceCliente'];
+  const campiPermessi = ['nome', 'cognome', 'telefono', 'indirizzo', 'codiceCliente', 'numeroLicenza', 'comuneRilascioLicenza'];
   const updates = {};
   campiPermessi.forEach(campo => {
     if (req.body[campo] !== undefined) updates[campo] = req.body[campo];
@@ -48,7 +48,8 @@ exports.getCliente = catchAsync(async (req, res, next) => {
 exports.updateCliente = catchAsync(async (req, res, next) => {
   const campiPermessi = [
     'nome', 'cognome', 'email', 'telefono', 'indirizzo',
-    'codiceCliente', 'codiceFiscale', 'partitaIva',
+    'codiceCliente', 'numeroLicenza', 'comuneRilascioLicenza',
+    'codiceFiscale', 'partitaIva',
     'regimeFiscale', 'coefficienteRedditivita', 'aliquotaForfettaria', 'aliquotaINPS'
   ];
   const updates = {};

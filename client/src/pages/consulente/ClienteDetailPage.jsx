@@ -109,6 +109,8 @@ export default function ClienteDetailPage() {
         email: c.email || '',
         telefono: c.telefono || '',
         codiceCliente: c.codiceCliente || '',
+        numeroLicenza: c.numeroLicenza || '',
+        comuneRilascioLicenza: c.comuneRilascioLicenza || '',
         codiceFiscale: c.codiceFiscale || '',
         partitaIva: c.partitaIva || '',
       })
@@ -595,6 +597,22 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
                 <input type="text" value={anagraficaForm.codiceCliente}
                   onChange={(e) => setAnagraficaForm({ ...anagraficaForm, codiceCliente: e.target.value })}
                   placeholder="Es. CLI-001"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Numero Licenza</label>
+                <input type="text" value={anagraficaForm.numeroLicenza}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, numeroLicenza: e.target.value })}
+                  placeholder="Es. 42"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Comune di Rilascio</label>
+                <input type="text" value={anagraficaForm.comuneRilascioLicenza}
+                  onChange={(e) => setAnagraficaForm({ ...anagraficaForm, comuneRilascioLicenza: e.target.value })}
+                  placeholder="Es. Milano"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
               </div>
             </div>

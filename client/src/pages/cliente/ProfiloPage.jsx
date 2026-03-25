@@ -79,6 +79,8 @@ export default function ProfiloPage() {
     email: '',
     telefono: '',
     codiceCliente: '',
+    numeroLicenza: '',
+    comuneRilascioLicenza: '',
   })
   const [datiFiscali, setDatiFiscali] = useState({
     regimeFiscale: 'forfettario',
@@ -136,6 +138,8 @@ export default function ProfiloPage() {
         email: u.email || '',
         telefono: u.telefono || '',
         codiceCliente: u.codiceCliente || '',
+        numeroLicenza: u.numeroLicenza || '',
+        comuneRilascioLicenza: u.comuneRilascioLicenza || '',
       })
       setDatiFiscali({
         regimeFiscale: u.regimeFiscale || 'forfettario',
@@ -431,6 +435,22 @@ export default function ProfiloPage() {
               onChange={(e) => setProfilo({ ...profilo, codiceCliente: e.target.value })}
               placeholder="Es. CLI-001"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Numero Licenza</label>
+              <input type="text" value={profilo.numeroLicenza}
+                onChange={(e) => setProfilo({ ...profilo, numeroLicenza: e.target.value })}
+                placeholder="Es. 42"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Comune di Rilascio</label>
+              <input type="text" value={profilo.comuneRilascioLicenza}
+                onChange={(e) => setProfilo({ ...profilo, comuneRilascioLicenza: e.target.value })}
+                placeholder="Es. Milano"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
           </div>
           <button type="submit" disabled={saving}
             className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
