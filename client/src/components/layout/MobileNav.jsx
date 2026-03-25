@@ -2,28 +2,34 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Receipt, FileText, Wallet, Car, Landmark,
-  Users, CheckSquare, MoreHorizontal
+  Users, CheckSquare, MoreHorizontal, LayoutDashboard, ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const clienteTabs = [
-  { to: '/corrispettivi', label: 'Incassi', icon: Receipt },
-  { to: '/fatture', label: 'Fatture', icon: FileText },
-  { to: '/costi', label: 'Costi', icon: Wallet },
-  { to: '/chilometri', label: 'Km', icon: Car },
-  { to: '/versamenti', label: 'Versamenti', icon: Landmark },
+  { to: '/corrispettivi', label: 'Incassi',    icon: Receipt },
+  { to: '/fatture',       label: 'Fatture',    icon: FileText },
+  { to: '/costi',         label: 'Costi',      icon: Wallet },
+  { to: '/chilometri',    label: 'Km',         icon: Car },
+  { to: '/versamenti',    label: 'Versamenti', icon: Landmark },
 ]
 
 const consulenteTabs = [
-  { to: '/consulente', label: 'Home', icon: Users },
-  { to: '/consulente/clienti', label: 'Clienti', icon: Users },
+  { to: '/consulente',              label: 'Home',    icon: LayoutDashboard, end: true },
+  { to: '/consulente/clienti',      label: 'Clienti', icon: Users },
   { to: '/consulente/approvazioni', label: 'Approva', icon: CheckSquare },
-  { to: '/consulente/impostazioni', label: 'Altro', icon: MoreHorizontal },
+  { to: '/consulente/impostazioni', label: 'Altro',   icon: MoreHorizontal },
+]
+
+const adminTabs = [
+  { to: '/admin',            label: 'Dashboard',  icon: ShieldCheck, end: true },
+  { to: '/admin/consulenti', label: 'Consulenti', icon: Users },
 ]
 
 export default function MobileNav() {
-  const { isCliente } = useAuth()
-  const tabs = isCliente ? clienteTabs : consulenteTabs
+  const { isCliente, isConsulente, isSuperAdmin } = useAuth()
+
+  const tabs = isSuperAdmin ? adminTabs : isConsulente ? consulenteTabs : clienteTabs
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border lg:hidden safe-area-pb">
@@ -34,7 +40,7 @@ export default function MobileNav() {
             <NavLink
               key={tab.to}
               to={tab.to}
-              end={tab.to === '/consulente'}
+              end={tab.end ?? false}
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center gap-0.5 px-2 py-1.5 min-w-[52px]',
