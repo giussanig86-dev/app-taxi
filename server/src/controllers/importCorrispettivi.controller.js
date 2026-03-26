@@ -9,17 +9,18 @@
 
 const multer = require('multer')
 const XLSX = require('xlsx')
+const pdfParse = require('pdf-parse')
 const Corrispettivo = require('../models/Corrispettivo')
 const AppError = require('../utils/AppError')
 const catchAsync = require('../utils/catchAsync')
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = file.originalname.toLowerCase().replace(/.*\./, '')
-    if (['xlsx', 'xls', 'csv'].includes(ext)) return cb(null, true)
-    cb(new AppError('Formato non supportato. Usa .xlsx, .xls o .csv', 400))
+    if (['xlsx', 'xls', 'csv', 'pdf'].includes(ext)) return cb(null, true)
+    cb(new AppError('Formato non supportato. Usa .xlsx, .xls, .csv o .pdf', 400))
   }
 })
 
@@ -76,10 +77,40 @@ function parseMetodo(str) {
   return 'contante'
 }
 
+async function previewFromPDF(buffer) {
+  const pdf = await pdfParse(buffer)
+  const lines = pdf.text.split('\n').map(l => l.trim()).filter(Boolean)
+  // Cerca righe con data + importo: es. "01/03/2025  120,50" o "1 marzo 2025  €120.50"
+  const DATE_RE = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/
+  const IMPORTO_RE = /[€$]?\s*(\d{1,6}[.,]\d{2})\b/
+  const found = []
+  for (const line of lines) {
+    const dm = line.match(DATE_RE)
+    const im = line.match(IMPORTO_RE)
+    if (dm && im) {
+      found.push({ data: dm[1], importo: im[1].replace(',', '.'), metodoPagamento: 'contante', note: '' })
+    }
+  }
+  return found
+}
+
 exports.preview = catchAsync(async (req, res, next) => {
   if (!req.file) return next(new AppError('File non trovato nella richiesta.', 400))
   if (!req.tenantUserId) return next(new AppError('userId del cliente obbligatorio.', 400))
 
+  const ext = req.file.originalname.toLowerCase().replace(/.*\./, '')
+
+  // ── PDF ───────────────────────────────────────────────────────────────
+  if (ext === 'pdf') {
+    const rows = await previewFromPDF(req.file.buffer)
+    if (rows.length === 0) return next(new AppError('Nessuna riga data+importo trovata nel PDF. Prova con Excel/CSV.', 400))
+    const headers = ['data', 'importo', 'metodoPagamento', 'note']
+    const mapping = { data: 0, importo: 1, metodo: 2, note: 3 }
+    const rowsArr = rows.map(r => [r.data, r.importo, r.metodoPagamento, r.note])
+    return res.json({ status: 'success', data: { headers, rows: rowsArr, mapping, totaleRighe: rowsArr.length, sorgente: 'pdf' } })
+  }
+
+  // ── Excel / CSV ───────────────────────────────────────────────────────
   const workbook = XLSX.read(req.file.buffer, { type: 'buffer', dateNF: 'dd/mm/yyyy' })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
   const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })

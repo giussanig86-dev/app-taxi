@@ -73,6 +73,15 @@ const costoSchema = new mongoose.Schema({
 
   ricevuta: String,
 
+  // Giustificativo allegato (PDF o immagine)
+  giustificativo: {
+    data:      { type: Buffer },
+    nome:      { type: String },
+    mimeType:  { type: String },
+    size:      { type: Number },
+    caricatoAt:{ type: Date },
+  },
+
   // Approvazione
   insertMode: {
     type: String,

@@ -57,8 +57,8 @@ export default function ImportCorrispettiviModal({ clienteId, onClose, onSuccess
   const handleFile = useCallback(f => {
     if (!f) return
     const ext = f.name.toLowerCase().replace(/.*\./, '')
-    if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-      setError('Formato non supportato. Usa .xlsx, .xls o .csv')
+    if (!['xlsx', 'xls', 'csv', 'pdf'].includes(ext)) {
+      setError('Formato non supportato. Usa .xlsx, .xls, .csv o .pdf')
       return
     }
     setFile(f)
@@ -199,7 +199,7 @@ export default function ImportCorrispettiviModal({ clienteId, onClose, onSuccess
                     <p className="text-xs text-gray-400 mt-1">Excel (.xlsx, .xls) o CSV — max 5 MB</p>
                   </div>
                 )}
-                <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.pdf" className="hidden"
                   onChange={e => handleFile(e.target.files[0])} />
               </div>
               {error && (
