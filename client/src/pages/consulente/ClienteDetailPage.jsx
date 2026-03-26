@@ -4,7 +4,7 @@ import {
   ArrowLeft, TrendingUp, Receipt, FileText, Landmark,
   Calculator, Plus, Trash2, Edit3, Upload, CheckCircle,
   FolderOpen, Download, FileSpreadsheet, Image, AlertCircle, ChevronDown,
-  Save, User, Car, Archive, History
+  Save, User, Car, Archive, History, Paperclip, X as XIcon
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
@@ -71,6 +71,11 @@ export default function ClienteDetailPage() {
   const [savingStato, setSavingStato] = useState(false)
   const [storicoStato, setStoricoStato] = useState(null)
   const [showStoricoStato, setShowStoricoStato] = useState(false)
+
+  // Giustificativo costi
+  const [uploadingGiust, setUploadingGiust] = useState(null) // costoId in upload
+  const giustInputRef = useRef(null)
+  const [giustTargetId, setGiustTargetId] = useState(null)
 
   // Documenti
   const [documenti, setDocumenti] = useState(null)
@@ -483,6 +488,55 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
     } catch (err) {
       alert(err.response?.data?.message || 'Errore storicizzazione')
     } finally { setSavingVeicolo(false) }
+  }
+
+  async function handleUploadGiustificativo(e) {
+    const file = e.target.files?.[0]
+    if (!file || !giustTargetId) return
+    setUploadingGiust(giustTargetId)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post(`/costi/${giustTargetId}/giustificativo?userId=${id}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const meta = res.data.data?.giustificativo
+      setCosti(prev => (prev || []).map(c =>
+        c._id === giustTargetId ? { ...c, giustificativo: meta } : c
+      ))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore upload giustificativo')
+    } finally {
+      setUploadingGiust(null)
+      setGiustTargetId(null)
+      if (giustInputRef.current) giustInputRef.current.value = ''
+    }
+  }
+
+  function handleDownloadGiustificativo(costo) {
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const url = `${baseUrl}/api/v1/costi/${costo._id}/giustificativo?userId=${id}`
+    const token = localStorage.getItem('token')
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob)
+        window.open(blobUrl, '_blank')
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000)
+      })
+      .catch(() => alert('Errore download'))
+  }
+
+  async function handleDeleteGiustificativo(costoId) {
+    if (!confirm('Rimuovere il giustificativo allegato?')) return
+    try {
+      await api.delete(`/costi/${costoId}/giustificativo?userId=${id}`)
+      setCosti(prev => (prev || []).map(c =>
+        c._id === costoId ? { ...c, giustificativo: undefined } : c
+      ))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore rimozione')
+    }
   }
 
   async function handleDelete() {
@@ -1096,6 +1150,11 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                {/* Input nascosto per upload giustificativo */}
+                <input type="file" ref={giustInputRef} className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+                  onChange={handleUploadGiustificativo} />
+
                 <thead className="bg-gray-50 text-gray-600 text-left">
                   <tr>
                     <th className="px-4 py-3 font-medium">Data</th>
@@ -1103,6 +1162,7 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
                     <th className="px-4 py-3 font-medium">Descrizione</th>
                     <th className="px-4 py-3 font-medium">Importo</th>
                     <th className="px-4 py-3 font-medium">Stato</th>
+                    <th className="px-4 py-3 text-center font-medium">Scontrino</th>
                     <th className="px-4 py-3 text-right font-medium">Azioni</th>
                   </tr>
                 </thead>
@@ -1119,6 +1179,28 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
                       <td className="px-4 py-3 max-w-[160px] truncate">{c.descrizione || '—'}</td>
                       <td className="px-4 py-3 font-semibold text-red-600">{formatEuro(c.importo)}</td>
                       <td className="px-4 py-3 text-xs">{c.statoApprovazione || (c.approvato ? 'approvato' : 'in_attesa')}</td>
+                      <td className="px-4 py-3 text-center">
+                        {uploadingGiust === c._id ? (
+                          <span className="text-[11px] text-gray-400">Carico...</span>
+                        ) : c.giustificativo?.nome ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => handleDownloadGiustificativo(c)} title={c.giustificativo.nome}
+                              className="p-1 text-green-600 hover:text-green-700 rounded hover:bg-green-50 transition-colors">
+                              <Paperclip className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteGiustificativo(c._id)}
+                              className="p-1 text-gray-300 hover:text-red-500 rounded hover:bg-red-50 transition-colors">
+                              <XIcon className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setGiustTargetId(c._id); giustInputRef.current?.click() }}
+                            title="Allega scontrino"
+                            className="p-1 text-gray-300 hover:text-primary rounded hover:bg-primary/5 transition-colors">
+                            <Paperclip className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => { setEditingCosto(c); setShowCostoForm(true) }}
@@ -1134,7 +1216,7 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
                     </tr>
                   ))}
                   {(!costi || costi.length === 0) && (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Nessun costo</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nessun costo</td></tr>
                   )}
                 </tbody>
               </table>

@@ -46,4 +46,9 @@ router.route('/:id')
   .put(validateObjectId, ctrl.update)
   .delete(validateObjectId, ctrl.delete);
 
+// Giustificativo allegato
+router.post('/:id/giustificativo', validateObjectId, ctrl.uploadGiustificativoMiddleware, ctrl.uploadGiustificativo);
+router.get('/:id/giustificativo', validateObjectId, ctrl.downloadGiustificativo);
+router.delete('/:id/giustificativo', validateObjectId, ctrl.deleteGiustificativo);
+
 module.exports = router;
