@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Calendar, CreditCard, Banknote, Trash2, Edit3, X, Save, Filter, FileSpreadsheet, FileText, Download, ChevronDown } from 'lucide-react'
+import { Plus, Search, Calendar, CreditCard, Banknote, Trash2, Edit3, X, Save, Filter, FileSpreadsheet, FileText, Download, ChevronDown, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { formatEuro, formatData, formatDataInput, cn, MESI } from '@/lib/utils'
 import { METODI_PAGAMENTO } from '@/lib/constants'
@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import EmptyState from '@/components/shared/EmptyState'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import VoiceInput from '@/components/shared/VoiceInput'
+import ImportCorrispettiviModal from '@/components/shared/ImportCorrispettiviModal'
 import { useOutletContext } from 'react-router-dom'
 
 const INITIAL_FORM = {
@@ -27,6 +28,7 @@ export default function CorrispettiviPage() {
   const [form, setForm] = useState(INITIAL_FORM)
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
+  const [showImport, setShowImport] = useState(false)
   const [search, setSearch] = useState('')
   const [meseFilter, setMeseFilter] = useState('')
   const [metodoFilter, setMetodoFilter] = useState('')
@@ -249,9 +251,18 @@ export default function CorrispettiviPage() {
       <PageHeader
         title="Corrispettivi"
         subtitle={`Anno ${anno} · ${filtered.length} registrazioni · Totale ${formatEuro(totale)}`}
-        actionLabel="Nuovo Corrispettivo"
-        actionIcon={Plus}
-        onAction={openNew}
+        action={
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              <Upload className="w-4 h-4" /> Importa
+            </button>
+            <button onClick={openNew}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+              <Plus className="w-4 h-4" /> Nuovo Corrispettivo
+            </button>
+          </div>
+        }
       />
 
       {/* Filtri */}
@@ -544,6 +555,13 @@ export default function CorrispettiviPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <ImportCorrispettiviModal
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); fetchData() }}
+        />
       )}
 
       {/* Confirm Delete */}
