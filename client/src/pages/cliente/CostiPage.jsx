@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit3, X, Save, Receipt, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Search, Trash2, Edit3, X, Save, Receipt, AlertCircle, CheckCircle, XCircle, Paperclip } from 'lucide-react'
 import api from '@/lib/api'
 import { formatEuro, formatData, formatDataInput, cn, MESI } from '@/lib/utils'
 import { CATEGORIE_COSTI, METODI_PAGAMENTO } from '@/lib/constants'
@@ -34,6 +34,9 @@ export default function CostiPage() {
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [statoFilter, setStatoFilter] = useState('')
+  const [uploadingGiust, setUploadingGiust] = useState(null)
+  const [giustTargetId, setGiustTargetId] = useState(null)
+  const giustInputRef = useRef(null)
 
   useEffect(() => {
     fetchData()
@@ -93,6 +96,49 @@ export default function CostiPage() {
       alert(err.response?.data?.message || 'Errore salvataggio')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleUploadGiustificativo(e) {
+    const file = e.target.files?.[0]
+    if (!file || !giustTargetId) return
+    setUploadingGiust(giustTargetId)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post(`/costi/${giustTargetId}/giustificativo`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const meta = res.data.data?.giustificativo
+      setCosti(prev => prev.map(c => c._id === giustTargetId ? { ...c, giustificativo: meta } : c))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore upload')
+    } finally {
+      setUploadingGiust(null)
+      setGiustTargetId(null)
+      if (giustInputRef.current) giustInputRef.current.value = ''
+    }
+  }
+
+  function handleDownloadGiustificativo(costo) {
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const token = localStorage.getItem('token')
+    fetch(`${baseUrl}/api/v1/costi/${costo._id}/giustificativo`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => r.blob()).then(blob => {
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 3000)
+    }).catch(() => alert('Errore download'))
+  }
+
+  async function handleDeleteGiustificativo(costoId) {
+    if (!confirm('Rimuovere il giustificativo allegato?')) return
+    try {
+      await api.delete(`/costi/${costoId}/giustificativo`)
+      setCosti(prev => prev.map(c => c._id === costoId ? { ...c, giustificativo: undefined } : c))
+    } catch (err) {
+      alert(err.response?.data?.message || 'Errore rimozione')
     }
   }
 
@@ -222,6 +268,20 @@ export default function CostiPage() {
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <span className="text-base font-bold text-red-600">{formatEuro(c.importo)}</span>
                     <div className="flex gap-1">
+                      {uploadingGiust === c._id ? (
+                        <span className="text-[10px] text-gray-400 px-1">...</span>
+                      ) : c.giustificativo?.nome ? (
+                        <button onClick={() => handleDownloadGiustificativo(c)} title="Vedi scontrino"
+                          className="p-1.5 text-green-500 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                          <Paperclip className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button onClick={() => { setGiustTargetId(c._id); giustInputRef.current?.click() }}
+                          title="Allega scontrino"
+                          className="p-1.5 text-gray-300 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                          <Paperclip className="w-4 h-4" />
+                        </button>
+                      )}
                       <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -235,6 +295,11 @@ export default function CostiPage() {
             ))}
           </div>
 
+          {/* Input nascosto upload giustificativo */}
+          <input type="file" ref={giustInputRef} className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+            onChange={handleUploadGiustificativo} />
+
           {/* Tabella desktop */}
           <div className="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
@@ -246,6 +311,7 @@ export default function CostiPage() {
                   <th className="px-4 py-3 font-medium">Importo</th>
                   <th className="px-4 py-3 font-medium">Stato</th>
                   <th className="px-4 py-3 font-medium">Fornitore</th>
+                  <th className="px-4 py-3 text-center font-medium">Scontrino</th>
                   <th className="px-4 py-3 font-medium text-right">Azioni</th>
                 </tr>
               </thead>
@@ -268,6 +334,28 @@ export default function CostiPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{c.fornitore || '-'}</td>
+                    <td className="px-4 py-3 text-center">
+                      {uploadingGiust === c._id ? (
+                        <span className="text-[11px] text-gray-400">Carico...</span>
+                      ) : c.giustificativo?.nome ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => handleDownloadGiustificativo(c)} title={c.giustificativo.nome}
+                            className="p-1 text-green-600 hover:text-green-700 rounded hover:bg-green-50 transition-colors">
+                            <Paperclip className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDeleteGiustificativo(c._id)}
+                            className="p-1 text-gray-300 hover:text-red-500 rounded hover:bg-red-50 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setGiustTargetId(c._id); giustInputRef.current?.click() }}
+                          title="Allega scontrino"
+                          className="p-1 text-gray-300 hover:text-primary rounded hover:bg-primary/5 transition-colors">
+                          <Paperclip className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-colors">
