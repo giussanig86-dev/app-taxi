@@ -167,6 +167,24 @@ const userSchema = new mongoose.Schema({
     configuredAt: Date
   },
 
+  // ============ AGENZIA DELLE ENTRATE - CASSETTO FISCALE ============
+  adeConnection: {
+    enabled:      { type: Boolean, default: false },
+    accessToken:  { type: String, set: encrypt, get: decrypt },
+    refreshToken: { type: String, set: encrypt, get: decrypt },
+    tokenExpiresAt: Date,
+    lastSyncAt:   Date,
+    lastSyncStatus: { type: String, enum: ['ok', 'error', 'in_progress'] },
+    lastSyncError: String,
+    syncFrequency: {
+      type: String,
+      enum: ['hourly', 'daily', 'manual'],
+      default: 'daily'
+    },
+    importOnlyAfter: Date,
+    connectedAt:  Date,
+  },
+
   // ============ CONSULENTE - PIANO SAAS ============
   consulente: {
     piano: {
