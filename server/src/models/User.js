@@ -167,13 +167,14 @@ const userSchema = new mongoose.Schema({
     configuredAt: Date
   },
 
-  // ============ AGENZIA DELLE ENTRATE - CASSETTO FISCALE ============
+  // ============ AGENZIA DELLE ENTRATE - CASSETTO FISCALE (CNS mTLS) ============
   adeConnection: {
-    enabled:      { type: Boolean, default: false },
-    accessToken:  { type: String, set: encrypt, get: decrypt },
-    refreshToken: { type: String, set: encrypt, get: decrypt },
-    tokenExpiresAt: Date,
-    lastSyncAt:   Date,
+    enabled:       { type: Boolean, default: false },
+    // Certificato CNS/Entratel: P12 base64 crittografato con AES-256-GCM
+    certificato:   { type: String, set: encrypt, get: decrypt },
+    certPassword:  { type: String, set: encrypt, get: decrypt },
+    certScadeAt:   Date,       // scadenza del certificato
+    lastSyncAt:    Date,
     lastSyncStatus: { type: String, enum: ['ok', 'error', 'in_progress'] },
     lastSyncError: String,
     syncFrequency: {
@@ -182,7 +183,7 @@ const userSchema = new mongoose.Schema({
       default: 'daily'
     },
     importOnlyAfter: Date,
-    connectedAt:  Date,
+    connectedAt:   Date,
   },
 
   // ============ CONSULENTE - PIANO SAAS ============

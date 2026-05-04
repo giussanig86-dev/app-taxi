@@ -4,23 +4,21 @@ const { protect, authorize } = require('../middleware/auth');
 const { validateObjectId } = require('../middleware/validate');
 
 router.use(protect);
+router.use(authorize('consulente'));
 
-// Stato connessione (consulente)
-router.get('/status',   authorize('consulente'), ctrl.status);
+// Stato connessione
+router.get('/status', ctrl.status);
 
-// OAuth2 SPID flow
-router.get('/auth-url', authorize('consulente'), ctrl.getAuthUrl);
-router.get('/callback', ctrl.callback);          // redirect da AdE (no auth header)
-
-// Gestione connessione
-router.delete('/connection', authorize('consulente'), ctrl.disconnect);
-router.patch('/settings',    authorize('consulente'), ctrl.updateSettings);
+// Gestione certificato CNS
+router.post('/certificato', ctrl.uploadCertMiddleware, ctrl.uploadCertificato);
+router.delete('/connection', ctrl.disconnect);
+router.patch('/settings',    ctrl.updateSettings);
 
 // Sincronizzazione automatica
-router.post('/sync',              authorize('consulente'), ctrl.syncManuale);
-router.post('/sync/:clienteId',   authorize('consulente'), validateObjectId, ctrl.syncCliente);
+router.post('/sync',             ctrl.syncManuale);
+router.post('/sync/:clienteId',  validateObjectId, ctrl.syncCliente);
 
-// Import manuale XML/ZIP FatturaPA
-router.post('/import-xml', authorize('consulente'), ctrl.uploadXmlMiddleware, ctrl.importXml);
+// Import manuale XML/P7M/ZIP FatturaPA
+router.post('/import-xml', ctrl.uploadXmlMiddleware, ctrl.importXml);
 
 module.exports = router;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Settings, Shield, CreditCard, Bell, User, Building2, RefreshCw, Link2, Link2Off, Upload, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { Save, Shield, CreditCard, User, Building2, RefreshCw, Link2Off, Upload, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import api from '@/lib/api'
 import { cn, formatEuro } from '@/lib/utils'
 import { PIANI_SAAS } from '@/lib/constants'
@@ -24,6 +24,8 @@ export default function ImpostazioniPage() {
   const [adeSuccess, setAdeSuccess] = useState('')
   const [adeSettings, setAdeSettings] = useState({ syncFrequency: 'daily', importOnlyAfter: '' })
   const [adeImportFile, setAdeImportFile] = useState(null)
+  const [certFile, setCertFile] = useState(null)
+  const [certPassword, setCertPassword] = useState('')
   const [profilo, setProfilo] = useState({
     nome: '', cognome: '', email: '', telefono: '',
     studioNome: '', studioIndirizzo: '', studioPec: '',
@@ -55,14 +57,25 @@ export default function ImpostazioniPage() {
     } catch { /* non critico */ }
   }
 
-  async function handleAdeConnect() {
+  async function handleAdeUploadCert(e) {
+    e.preventDefault()
+    if (!certFile) { setAdeError('Seleziona il file .p12'); return }
     setAdeLoading(true)
     setAdeError('')
+    const fd = new FormData()
+    fd.append('certificato', certFile)
+    fd.append('password', certPassword)
     try {
-      const res = await api.get('/ade/auth-url')
-      window.location.href = res.data.data.authUrl
+      const res = await api.post('/ade/certificato', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setAdeSuccess(res.data.messaggio)
+      setCertFile(null)
+      setCertPassword('')
+      fetchAdeStatus()
     } catch (err) {
-      setAdeError(err.response?.data?.messaggio || 'Errore connessione AdE')
+      setAdeError(err.response?.data?.messaggio || 'Errore caricamento certificato')
+    } finally {
       setAdeLoading(false)
     }
   }
@@ -345,23 +358,18 @@ export default function ImpostazioniPage() {
           <div className="bg-white rounded-xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-800">Agenzia delle Entrate</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Download automatico fatture passive dal Cassetto Fiscale</p>
+                <h3 className="font-semibold text-gray-800">Certificato CNS / Entratel</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Download automatico fatture passive tramite mTLS con AdE</p>
               </div>
               <div className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
                 adeStatus?.connessa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
               )}>
-                {adeStatus?.connessa ? <><CheckCircle className="w-3.5 h-3.5" /> Connessa</> : <><Link2Off className="w-3.5 h-3.5" /> Non connessa</>}
+                {adeStatus?.connessa
+                  ? <><CheckCircle className="w-3.5 h-3.5" /> Certificato attivo</>
+                  : <><Link2Off className="w-3.5 h-3.5" /> Nessun certificato</>}
               </div>
             </div>
-
-            {!adeStatus?.adeConfigured && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
-                <strong>Configurazione richiesta:</strong> le credenziali OAuth2 AdE non sono ancora impostate sul server.
-                Contatta il supporto TAXITAX per completare la configurazione iniziale (richiede registrazione app su AdE).
-              </div>
-            )}
 
             {adeStatus?.connessa ? (
               <div className="space-y-3">
@@ -370,12 +378,14 @@ export default function ImpostazioniPage() {
                     <p className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-gray-400" />
                       Ultima sync: {new Date(adeStatus.ultimaSync).toLocaleString('it-IT')}
-                      {adeStatus.statoSync === 'ok' && <span className="text-green-600 font-medium ml-1">✓ OK</span>}
+                      {adeStatus.statoSync === 'ok'    && <span className="text-green-600 font-medium ml-1">✓ OK</span>}
                       {adeStatus.statoSync === 'error' && <span className="text-red-600 font-medium ml-1">⚠ Errore</span>}
                     </p>
                   )}
                   {adeStatus.connessaDal && (
-                    <p className="text-gray-400 text-xs">Connessa dal {new Date(adeStatus.connessaDal).toLocaleDateString('it-IT')}</p>
+                    <p className="text-gray-400 text-xs">
+                      Certificato caricato il {new Date(adeStatus.connessaDal).toLocaleDateString('it-IT')}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -386,16 +396,43 @@ export default function ImpostazioniPage() {
                   </button>
                   <button onClick={handleAdeDisconnect}
                     className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors">
-                    <Link2Off className="w-4 h-4" /> Disconnetti
+                    <Link2Off className="w-4 h-4" /> Rimuovi certificato
                   </button>
                 </div>
               </div>
             ) : (
-              <button onClick={handleAdeConnect} disabled={adeLoading || !adeStatus?.adeConfigured}
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                <Link2 className="w-4 h-4" />
-                {adeLoading ? 'Reindirizzamento...' : 'Connetti con SPID / CIE / CNS'}
-              </button>
+              <form onSubmit={handleAdeUploadCert} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    File certificato (.p12 / .pfx)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-primary/40 transition-colors">
+                    <input type="file" accept=".p12,.pfx" id="cert-input" className="hidden"
+                      onChange={e => setCertFile(e.target.files[0])} />
+                    <label htmlFor="cert-input" className="cursor-pointer">
+                      {certFile
+                        ? <span className="text-sm text-primary font-medium">{certFile.name}</span>
+                        : <span className="text-sm text-gray-400">Clicca per selezionare il file <strong>.p12</strong></span>
+                      }
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Esporta il certificato Entratel/CNS dal tuo browser o dal software AdE in formato .p12
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password del certificato</label>
+                  <input type="password" value={certPassword}
+                    onChange={e => setCertPassword(e.target.value)}
+                    placeholder="Passphrase del file .p12"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <button type="submit" disabled={adeLoading || !certFile}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  {adeLoading ? 'Caricamento...' : 'Carica certificato'}
+                </button>
+              </form>
             )}
           </div>
 
@@ -427,41 +464,18 @@ export default function ImpostazioniPage() {
             </form>
           )}
 
-          {/* Import manuale XML/ZIP */}
-          <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-800">Import Manuale FatturaPA</h3>
-            <p className="text-sm text-gray-500">
-              Carica un file XML o ZIP scaricato dal Cassetto Fiscale AdE.
-              Le fatture vengono importate come costi dei rispettivi clienti.
-            </p>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-gray-300 transition-colors">
-              <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <input type="file" accept=".xml,.p7m,.zip" id="ade-xml-input"
-                className="hidden"
-                onChange={e => setAdeImportFile(e.target.files[0])} />
-              <label htmlFor="ade-xml-input" className="cursor-pointer text-sm text-primary font-medium hover:underline">
-                Seleziona file XML, P7M o ZIP
-              </label>
-              {adeImportFile && (
-                <p className="text-xs text-gray-500 mt-2">{adeImportFile.name}</p>
-              )}
-            </div>
-            {adeImportFile && (
-              <p className="text-xs text-amber-600">
-                Nota: l'import manuale richiede di selezionare il cliente dalla pagina "Clienti" → "Sincronizza fatture".
-              </p>
-            )}
-          </div>
-
           {/* Come funziona */}
           <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
             <h4 className="font-semibold text-blue-800 text-sm mb-2">Come funziona</h4>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Clicca "Connetti con SPID" e completa il login AdE</li>
-              <li>Il sistema scarica automaticamente le fatture passive dei tuoi clienti</li>
-              <li>Le fatture appaiono nella sezione "Costi" di ciascun cliente come <em>fattura_passiva</em></li>
-              <li>Approva o rifiuta ogni fattura dalla sezione "Approvazioni"</li>
+            <ol className="text-sm text-blue-700 space-y-1.5 list-decimal list-inside">
+              <li>Esporta il tuo certificato Entratel/CNS in formato <strong>.p12</strong> dal browser o dal software AdE</li>
+              <li>Caricalo qui con la relativa password</li>
+              <li>Il sistema scarica automaticamente le fatture passive di tutti i tuoi clienti</li>
+              <li>Le fatture appaiono nella sezione "Costi" come <em>fattura_passiva</em> in attesa di approvazione</li>
             </ol>
+            <p className="text-xs text-blue-600 mt-3">
+              Il certificato viene salvato crittografato (AES-256). Non viene mai inviato a terzi.
+            </p>
           </div>
         </div>
       )}

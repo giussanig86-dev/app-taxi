@@ -1,101 +1,90 @@
 /**
  * ADE CONTROLLER
- * Gestisce connessione OAuth2 SPID con AdE e sincronizzazione fatture passive.
+ * Gestisce upload certificato CNS/Entratel e sincronizzazione fatture passive.
  */
 
-const crypto = require('crypto');
-const User   = require('../models/User');
-const adeClient   = require('../services/adeClient');
+const multer  = require('multer');
+const User    = require('../models/User');
+const Costo   = require('../models/Costo');
+const adeClient = require('../services/adeClient');
 const { syncAllClienti, syncClienteFatture } = require('../services/syncFatture');
+const { parseFatturaXML, parseFattureZip } = require('../services/fatturaParser');
 
-// Mappa in-memory per PKCE code_verifier (in produzione usa Redis o session store)
-const pkceStore = new Map();
-
-// ─── GET /ade/status ─────────────────────────────────────────────────────────
+// ─── GET /ade/status ──────────────────────────────────────────────────────────
 
 exports.status = async (req, res) => {
   const user = await User.findById(req.user.id).select(
-    'adeConnection.enabled adeConnection.tokenExpiresAt adeConnection.lastSyncAt ' +
-    'adeConnection.lastSyncStatus adeConnection.lastSyncError adeConnection.syncFrequency ' +
-    'adeConnection.connectedAt adeConnection.importOnlyAfter'
+    'adeConnection.enabled adeConnection.certScadeAt adeConnection.lastSyncAt ' +
+    'adeConnection.lastSyncStatus adeConnection.lastSyncError ' +
+    'adeConnection.syncFrequency adeConnection.connectedAt adeConnection.importOnlyAfter'
   );
 
   const conn = user?.adeConnection ?? {};
-  const tokenValido = conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) > new Date();
+  const certValido = conn.certScadeAt ? new Date(conn.certScadeAt) > new Date() : !!conn.enabled;
 
   res.json({
     status: 'ok',
     data: {
-      connessa: !!conn.enabled && tokenValido,
-      tokenScade: conn.tokenExpiresAt,
-      ultimaSync: conn.lastSyncAt,
-      statoSync: conn.lastSyncStatus,
-      erroreSync: conn.lastSyncError,
-      frequenza: conn.syncFrequency || 'daily',
-      connessaDal: conn.connectedAt,
-      importaDal: conn.importOnlyAfter,
-      adeConfigured: !!(process.env.ADE_CLIENT_ID),
+      connessa:     !!conn.enabled && certValido,
+      certScade:    conn.certScadeAt,
+      ultimaSync:   conn.lastSyncAt,
+      statoSync:    conn.lastSyncStatus,
+      erroreSync:   conn.lastSyncError,
+      frequenza:    conn.syncFrequency || 'daily',
+      connessaDal:  conn.connectedAt,
+      importaDal:   conn.importOnlyAfter,
     }
   });
 };
 
-// ─── GET /ade/auth-url ────────────────────────────────────────────────────────
+// ─── POST /ade/certificato ────────────────────────────────────────────────────
 
-exports.getAuthUrl = (req, res) => {
-  if (!process.env.ADE_CLIENT_ID) {
-    return res.status(503).json({
+const uploadCert = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 1 * 1024 * 1024 }, // 1 MB max (i P12 sono ~5 KB)
+  fileFilter: (req, file, cb) => {
+    if (/\.(p12|pfx)$/i.test(file.originalname)) cb(null, true);
+    else cb(new Error('Formato non valido. Carica un file .p12 o .pfx'));
+  },
+}).single('certificato');
+
+exports.uploadCertMiddleware = uploadCert;
+
+exports.uploadCertificato = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ status: 'fail', messaggio: 'File .p12 mancante.' });
+  }
+
+  const password = req.body.password || '';
+
+  // Valida che il P12 sia integro e la password corretta
+  try {
+    adeClient.verificaCertificato(req.file.buffer, password);
+  } catch (err) {
+    return res.status(422).json({
       status: 'fail',
-      messaggio: 'Integrazione AdE non configurata. Contatta il supporto TAXITAX.',
+      messaggio: 'Certificato non valido o password errata. Verifica il file .p12 e riprova.',
     });
   }
 
-  const state = crypto.randomBytes(16).toString('hex');
-  const { url, codeVerifier } = adeClient.getAuthUrl(state);
+  // Salva il certificato come base64 crittografato
+  const certBase64 = req.file.buffer.toString('base64');
 
-  // Salva verifier associato allo state (TTL 10 min)
-  pkceStore.set(state, { codeVerifier, userId: req.user.id, ts: Date.now() });
-  setTimeout(() => pkceStore.delete(state), 10 * 60 * 1000);
+  const user = await User.findById(req.user.id);
+  user.adeConnection = {
+    ...user.adeConnection?.toObject?.() ?? {},
+    enabled:      true,
+    certificato:  certBase64,
+    certPassword: password,
+    certScadeAt:  null,        // può essere estratta in futuro con node-forge
+    connectedAt:  new Date(),
+    lastSyncStatus: null,
+    syncFrequency: user.adeConnection?.syncFrequency || 'daily',
+    importOnlyAfter: user.adeConnection?.importOnlyAfter || null,
+  };
+  await user.save();
 
-  res.json({ status: 'ok', data: { authUrl: url } });
-};
-
-// ─── GET /ade/callback ────────────────────────────────────────────────────────
-
-exports.callback = async (req, res) => {
-  const { code, state, error, error_description } = req.query;
-
-  const FRONTEND = process.env.FRONTEND_URL?.split(',')[0]?.trim() || 'http://localhost:5173';
-
-  if (error) {
-    return res.redirect(`${FRONTEND}/consulente/impostazioni?tab=ade&errore=${encodeURIComponent(error_description || error)}`);
-  }
-
-  const entry = pkceStore.get(state);
-  if (!entry || entry.userId !== req.user?.id) {
-    return res.redirect(`${FRONTEND}/consulente/impostazioni/ade?errore=state_non_valido`);
-  }
-  pkceStore.delete(state);
-
-  try {
-    const tokens = await adeClient.exchangeCode(code, entry.codeVerifier);
-
-    const user = await User.findById(entry.userId);
-    user.adeConnection = {
-      enabled:        true,
-      accessToken:    tokens.access_token,
-      refreshToken:   tokens.refresh_token,
-      tokenExpiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
-      connectedAt:    new Date(),
-      lastSyncStatus: null,
-      syncFrequency:  user.adeConnection?.syncFrequency || 'daily',
-      importOnlyAfter: user.adeConnection?.importOnlyAfter || null,
-    };
-    await user.save();
-
-    res.redirect(`${FRONTEND}/consulente/impostazioni?tab=ade&connessa=1`);
-  } catch (err) {
-    res.redirect(`${FRONTEND}/consulente/impostazioni?tab=ade&errore=${encodeURIComponent(err.message)}`);
-  }
+  res.json({ status: 'ok', messaggio: 'Certificato CNS caricato correttamente.' });
 };
 
 // ─── DELETE /ade/connection ────────────────────────────────────────────────────
@@ -103,13 +92,12 @@ exports.callback = async (req, res) => {
 exports.disconnect = async (req, res) => {
   await User.findByIdAndUpdate(req.user.id, {
     $set: {
-      'adeConnection.enabled':        false,
-      'adeConnection.accessToken':    null,
-      'adeConnection.refreshToken':   null,
-      'adeConnection.tokenExpiresAt': null,
+      'adeConnection.enabled':      false,
+      'adeConnection.certificato':  null,
+      'adeConnection.certPassword': null,
     }
   });
-  res.json({ status: 'ok', messaggio: 'Connessione AdE rimossa.' });
+  res.json({ status: 'ok', messaggio: 'Certificato CNS rimosso.' });
 };
 
 // ─── PATCH /ade/settings ──────────────────────────────────────────────────────
@@ -125,21 +113,21 @@ exports.updateSettings = async (req, res) => {
     update['adeConnection.importOnlyAfter'] = new Date(importOnlyAfter);
   }
 
-  const user = await User.findByIdAndUpdate(req.user.id, { $set: update }, { new: true });
-  res.json({ status: 'ok', data: user.adeConnection });
+  await User.findByIdAndUpdate(req.user.id, { $set: update });
+  res.json({ status: 'ok', messaggio: 'Impostazioni aggiornate.' });
 };
 
 // ─── POST /ade/sync ───────────────────────────────────────────────────────────
 
 exports.syncManuale = async (req, res) => {
   const user = await User.findById(req.user.id).select(
-    '+adeConnection.accessToken +adeConnection.refreshToken adeConnection'
+    'adeConnection nome'
   );
 
   if (!user?.adeConnection?.enabled) {
     return res.status(400).json({
       status: 'fail',
-      messaggio: 'Connessione AdE non attiva. Esegui prima il login SPID.',
+      messaggio: 'Nessun certificato CNS caricato. Vai in Impostazioni → AdE.',
     });
   }
 
@@ -167,13 +155,13 @@ exports.syncCliente = async (req, res) => {
   const { dataDa, dataA } = req.body;
 
   const [consulente, cliente] = await Promise.all([
-    User.findById(req.user.id).select('+adeConnection.accessToken +adeConnection.refreshToken adeConnection'),
+    User.findById(req.user.id).select('adeConnection nome'),
     User.findOne({ _id: clienteId, consulenteId: req.user.id, ruolo: 'cliente' })
       .select('nome cognome codiceFiscale partitaIva'),
   ]);
 
   if (!consulente?.adeConnection?.enabled) {
-    return res.status(400).json({ status: 'fail', messaggio: 'Connessione AdE non attiva.' });
+    return res.status(400).json({ status: 'fail', messaggio: 'Nessun certificato CNS caricato.' });
   }
   if (!cliente) {
     return res.status(404).json({ status: 'fail', messaggio: 'Cliente non trovato.' });
@@ -192,15 +180,10 @@ exports.syncCliente = async (req, res) => {
 };
 
 // ─── POST /ade/import-xml ─────────────────────────────────────────────────────
-// Upload manuale di XML/ZIP FatturaPA (alternativa all'API automatica)
-
-const multer = require('multer');
-const { parseFatturaXML, parseFattureZip } = require('../services/fatturaParser');
-const Costo = require('../models/Costo');
 
 const uploadXml = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB (ZIP con molte fatture)
+  limits:  { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (/\.(xml|p7m|zip)$/i.test(file.originalname)) cb(null, true);
     else cb(new Error('Formato non supportato. Usa XML, P7M o ZIP.'));
@@ -212,7 +195,6 @@ exports.uploadXmlMiddleware = uploadXml;
 exports.importXml = async (req, res) => {
   if (!req.file) return res.status(400).json({ status: 'fail', messaggio: 'File mancante.' });
 
-  // clienteId può venire da ?userId= (tenantGuard) o da body
   const clienteId = req.query.userId || req.body.clienteId;
   if (!clienteId) return res.status(400).json({ status: 'fail', messaggio: 'clienteId obbligatorio.' });
 
@@ -220,11 +202,10 @@ exports.importXml = async (req, res) => {
   if (!cliente) return res.status(404).json({ status: 'fail', messaggio: 'Cliente non trovato.' });
 
   const ext = req.file.originalname.toLowerCase();
-  let fattureDati = [];
+  let fattureDati;
 
   if (ext.endsWith('.zip')) {
-    const parsed = await parseFattureZip(req.file.buffer);
-    fattureDati = parsed;
+    fattureDati = await parseFattureZip(req.file.buffer);
   } else {
     try {
       const data = await parseFatturaXML(req.file.buffer);
@@ -249,8 +230,13 @@ exports.importXml = async (req, res) => {
       importate++;
       dettagli.push({ filename, stato: 'importata', numero: data.sdi?.numeroFattura });
     } catch (dbErr) {
-      if (dbErr.code === 11000) { duplicate++; dettagli.push({ filename, stato: 'duplicato' }); }
-      else { errori++; dettagli.push({ filename, stato: 'errore', messaggio: dbErr.message }); }
+      if (dbErr.code === 11000) {
+        duplicate++;
+        dettagli.push({ filename, stato: 'duplicato' });
+      } else {
+        errori++;
+        dettagli.push({ filename, stato: 'errore', messaggio: dbErr.message });
+      }
     }
   }
 
