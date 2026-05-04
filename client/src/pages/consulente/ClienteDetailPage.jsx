@@ -4,7 +4,7 @@ import {
   ArrowLeft, TrendingUp, Receipt, FileText, Landmark,
   Calculator, Plus, Trash2, Edit3, Upload, CheckCircle,
   FolderOpen, Download, FileSpreadsheet, Image, AlertCircle, ChevronDown,
-  Save, User, Car, Archive, History, Paperclip, X as XIcon
+  Save, User, Car, Archive, History, Paperclip, X as XIcon, RefreshCw
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
@@ -39,6 +39,8 @@ export default function ClienteDetailPage() {
   const [tabLoading, setTabLoading] = useState(false)
 
   const [showImportCosti, setShowImportCosti] = useState(false)
+  const [adeSyncing, setAdeSyncing] = useState(false)
+  const [adeSyncMsg, setAdeSyncMsg] = useState('')
   const [showCostoForm, setShowCostoForm] = useState(false)
   const [editingCosto, setEditingCosto] = useState(null)
   const [showImportCorrispettivi, setShowImportCorrispettivi] = useState(false)
@@ -536,6 +538,21 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
       ))
     } catch (err) {
       alert(err.response?.data?.message || 'Errore rimozione')
+    }
+  }
+
+  async function handleAdeSyncCliente() {
+    setAdeSyncing(true)
+    setAdeSyncMsg('')
+    try {
+      const res = await api.post(`/ade/sync/${id}`)
+      setAdeSyncMsg(res.data.messaggio)
+      reloadTab('costi')
+    } catch (err) {
+      setAdeSyncMsg(err.response?.data?.messaggio || 'Errore sincronizzazione AdE')
+    } finally {
+      setAdeSyncing(false)
+      setTimeout(() => setAdeSyncMsg(''), 5000)
     }
   }
 
@@ -1135,6 +1152,15 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}tr:nth-child(even) td{backgro
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-medium text-gray-700">Costi {anno}</span>
             <div className="flex items-center gap-2">
+              {adeSyncMsg && (
+                <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded">{adeSyncMsg}</span>
+              )}
+              <button onClick={handleAdeSyncCliente} disabled={adeSyncing}
+                title="Scarica fatture passive dal Cassetto Fiscale AdE"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 disabled:opacity-50 transition-colors">
+                <RefreshCw className={cn('w-3.5 h-3.5', adeSyncing && 'animate-spin')} />
+                {adeSyncing ? 'Sync...' : 'Sync AdE'}
+              </button>
               <button onClick={() => setShowImportCosti(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium hover:bg-gray-200 transition-colors">
                 <Upload className="w-3.5 h-3.5" /> Importa Registro IVA
