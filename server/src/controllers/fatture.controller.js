@@ -1,72 +1,79 @@
-const FatturaAttiva = require('../models/FatturaAttiva');
+const Fattura = require('../models/Fattura');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 
-exports.getAll = catchAsync(async (req, res) => {
-  const { anno, pagata, statoSdi, page = 1, limit = 50 } = req.query;
-  const filter = { ...req.tenantFilter };
-  if (anno) { const a = parseInt(anno); filter.dataEmissione = { $gte: new Date(a, 0, 1), $lt: new Date(a + 1, 0, 1) }; }
-  if (pagata !== undefined) filter.pagata = pagata === 'true';
-  if (statoSdi) filter['sdi.statoTrasmissione'] = statoSdi;
+// Costruisce il filtro MongoDB in base al ruolo dell'utente autenticato.
+// La taxi app non usa più tenantGuard per le fatture perché il nuovo modello
+// usa clienteId/consulenteId invece di userId.
+const buildFilter = (user, extra = {}) => {
+  if (user.ruolo === 'super_admin') return extra;
+  if (user.ruolo === 'cliente')     return { clienteId: user._id, ...extra };
+  if (user.ruolo === 'consulente')  return { consulenteId: user._id, ...extra };
+  return null;
+};
+
+exports.getAll = catchAsync(async (req, res, next) => {
+  const { stato, anno, page = 1, limit = 50 } = req.query;
+
+  const filter = buildFilter(req.user);
+  if (!filter) return next(new AppError('Accesso non autorizzato.', 403));
+
+  if (stato) filter.stato = stato;
+  if (anno) {
+    const a = parseInt(anno);
+    filter['datiParsati.data'] = { $gte: new Date(a, 0, 1), $lt: new Date(a + 1, 0, 1) };
+  }
+
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const [fatture, total] = await Promise.all([
-    FatturaAttiva.find(filter).sort({ dataEmissione: -1 }).skip(skip).limit(parseInt(limit)),
-    FatturaAttiva.countDocuments(filter)
+    Fattura.find(filter).sort({ 'datiParsati.data': -1 }).skip(skip).limit(parseInt(limit)),
+    Fattura.countDocuments(filter),
   ]);
-  res.status(200).json({ status: 'success', results: fatture.length, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)), data: { fatture } });
-});
 
-exports.create = catchAsync(async (req, res) => {
-  const fattura = await FatturaAttiva.create({ ...req.body, userId: req.tenantUserId || req.user._id, createdBy: req.user._id });
-  res.status(201).json({ status: 'success', data: { fattura } });
+  res.status(200).json({
+    status: 'success',
+    results: fatture.length,
+    total,
+    page: parseInt(page),
+    pages: Math.ceil(total / parseInt(limit)),
+    data: { fatture },
+  });
 });
 
 exports.getOne = catchAsync(async (req, res, next) => {
-  const fattura = await FatturaAttiva.findOne({ _id: req.params.id, ...req.tenantFilter });
+  const filter = buildFilter(req.user, { _id: req.params.id });
+  if (!filter) return next(new AppError('Accesso non autorizzato.', 403));
+
+  const fattura = await Fattura.findOne(filter);
   if (!fattura) return next(new AppError('Fattura non trovata.', 404));
+
   res.status(200).json({ status: 'success', data: { fattura } });
 });
 
-exports.update = catchAsync(async (req, res, next) => {
-  const fattura = await FatturaAttiva.findOne({ _id: req.params.id, ...req.tenantFilter });
+exports.updateStato = catchAsync(async (req, res, next) => {
+  const { stato } = req.body;
+  const allowed = ['ricevuta', 'accettata', 'rifiutata', 'scartata'];
+  if (!stato || !allowed.includes(stato)) {
+    return next(new AppError(`Stato non valido. Valori ammessi: ${allowed.join(', ')}.`, 400));
+  }
+
+  const filter = buildFilter(req.user, { _id: req.params.id });
+  if (!filter) return next(new AppError('Accesso non autorizzato.', 403));
+
+  const fattura = await Fattura.findOneAndUpdate(filter, { stato }, { new: true, runValidators: true });
   if (!fattura) return next(new AppError('Fattura non trovata.', 404));
-  if (fattura.sdi.statoTrasmissione !== 'bozza') return next(new AppError('Puoi modificare solo fatture in bozza.', 400));
-  Object.assign(fattura, req.body);
-  await fattura.save();
+
   res.status(200).json({ status: 'success', data: { fattura } });
 });
 
-exports.delete = catchAsync(async (req, res, next) => {
-  const fattura = await FatturaAttiva.findOne({ _id: req.params.id, ...req.tenantFilter });
-  if (!fattura) return next(new AppError('Fattura non trovata.', 404));
-  if (fattura.sdi.statoTrasmissione !== 'bozza') return next(new AppError('Puoi eliminare solo fatture in bozza.', 400));
-  await fattura.deleteOne();
-  res.status(204).json({ status: 'success', data: null });
-});
+exports.updateCorsaId = catchAsync(async (req, res, next) => {
+  const { corsaId } = req.body;
 
-exports.marcaPagata = catchAsync(async (req, res, next) => {
-  const fattura = await FatturaAttiva.findOne({ _id: req.params.id, ...req.tenantFilter });
+  const filter = buildFilter(req.user, { _id: req.params.id });
+  if (!filter) return next(new AppError('Accesso non autorizzato.', 403));
+
+  const fattura = await Fattura.findOneAndUpdate(filter, { corsaId: corsaId || null }, { new: true });
   if (!fattura) return next(new AppError('Fattura non trovata.', 404));
-  await fattura.marcaPagata(req.body.metodoPagamento);
+
   res.status(200).json({ status: 'success', data: { fattura } });
-});
-
-exports.statsAnno = catchAsync(async (req, res) => {
-  const anno = parseInt(req.query.anno) || new Date().getFullYear();
-  const userId = req.tenantUserId || req.user._id;
-  const result = await FatturaAttiva.fatturatoAnno(userId, anno);
-  res.status(200).json({ status: 'success', data: result });
-});
-
-exports.statsScadute = catchAsync(async (req, res) => {
-  const userId = req.tenantUserId || req.user._id;
-  const result = await FatturaAttiva.fattureScadute(userId);
-  res.status(200).json({ status: 'success', data: { fatture: result } });
-});
-
-exports.statsScadenze = catchAsync(async (req, res) => {
-  const giorni = parseInt(req.query.giorni) || 30;
-  const userId = req.tenantUserId || req.user._id;
-  const result = await FatturaAttiva.prossimeScadenze(userId, giorni);
-  res.status(200).json({ status: 'success', data: { fatture: result } });
 });

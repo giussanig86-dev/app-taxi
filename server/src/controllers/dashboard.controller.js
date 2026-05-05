@@ -1,4 +1,4 @@
-const { Corrispettivo, FatturaAttiva, Costo, Versamento, User } = require('../models');
+const { Corrispettivo, Fattura, Costo, Versamento, User } = require('../models');
 const calcoloFiscale = require('../services/calcoloFiscale');
 const catchAsync = require('../utils/catchAsync');
 
@@ -8,14 +8,14 @@ exports.dashboardCliente = catchAsync(async (req, res) => {
 
   const [totaleCorrispettivi, totaleFatture, totaleCosti, andamentoMensile, breakdownMetodi, breakdownCosti, scadenzeVersamenti, versamentiScaduti, fattureScadute] = await Promise.all([
     Corrispettivo.totaleAnno(userId, anno),
-    FatturaAttiva.fatturatoAnno(userId, anno),
+    Fattura.totaleAnno(userId, anno),
     Costo.totaleAnno(userId, anno),
     Corrispettivo.andamentoMensile(userId, anno),
     Corrispettivo.breakdownMetodi(userId, anno),
     Costo.breakdownCategorie(userId, anno),
     Versamento.prossimeScadenze(userId, 60),
     Versamento.scaduti(userId),
-    FatturaAttiva.fattureScadute(userId)
+    Fattura.fattureScadute(userId)
   ]);
 
   const user = await User.findById(userId);

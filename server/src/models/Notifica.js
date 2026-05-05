@@ -42,7 +42,7 @@ const notificaSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   }
-}, { timestamps: true });
+}, { timestamps: true, collection: 'notifiche_sdi' });
 
 notificaSchema.index({ userId: 1, letta: 1, createdAt: -1 });
 

@@ -4,13 +4,12 @@
 
 const User = require('./User');
 const Corrispettivo = require('./Corrispettivo');
-const FatturaAttiva = require('./FatturaAttiva');
+const Fattura = require('./Fattura');
 const Costo = require('./Costo');
 const Versamento = require('./Versamento');
 const Chilometro = require('./Chilometro');
 const AuditLog = require('./AuditLog');
 const ScaglioneIrpef = require('./ScaglioneIrpef');
-const SdiSyncLog = require('./SdiSyncLog');
 const Documento = require('./Documento');
 const Veicolo = require('./Veicolo');
 const StatoLog = require('./StatoLog');
@@ -19,13 +18,12 @@ const Notifica = require('./Notifica');
 module.exports = {
   User,
   Corrispettivo,
-  FatturaAttiva,
+  Fattura,
   Costo,
   Versamento,
   Chilometro,
   AuditLog,
   ScaglioneIrpef,
-  SdiSyncLog,
   Documento,
   Veicolo,
   StatoLog,
