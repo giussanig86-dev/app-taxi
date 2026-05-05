@@ -17,19 +17,38 @@ exports.status = async (req, res) => {
   );
 
   const conn = user?.adeConnection ?? {};
-  const certValido = conn.certScadeAt ? new Date(conn.certScadeAt) > new Date() : !!conn.enabled;
+
+  // Recupera lo stato del certificato dal gestionale (fonte autorevole)
+  let certInfo = null;
+  const gestionaleUrl = process.env.GESTIONALE_URL;
+  if (gestionaleUrl && conn.enabled) {
+    try {
+      const risposta = await fetch(`${gestionaleUrl}/api/cert/status`, {
+        headers: { Authorization: req.headers.authorization },
+      });
+      if (risposta.ok) certInfo = await risposta.json();
+    } catch {
+      // il gestionale non è raggiungibile — si usa il dato locale come fallback
+    }
+  }
+
+  const certValido = certInfo ? certInfo.valido : (
+    conn.certScadeAt ? new Date(conn.certScadeAt) > new Date() : !!conn.enabled
+  );
 
   res.json({
     status: 'ok',
     data: {
-      connessa:    !!conn.enabled && certValido,
-      certScade:   conn.certScadeAt,
-      ultimaSync:  conn.lastSyncAt,
-      statoSync:   conn.lastSyncStatus,
-      erroreSync:  conn.lastSyncError,
-      frequenza:   conn.syncFrequency || 'daily',
-      connessaDal: conn.connectedAt,
-      importaDal:  conn.importOnlyAfter,
+      connessa:     !!conn.enabled && certValido,
+      certScade:    certInfo?.scadenza   ?? conn.certScadeAt,
+      certSoggetto: certInfo?.soggettoNome ?? null,
+      certScaduto:  certInfo?.scaduto    ?? false,
+      ultimaSync:   conn.lastSyncAt,
+      statoSync:    conn.lastSyncStatus,
+      erroreSync:   conn.lastSyncError,
+      frequenza:    conn.syncFrequency || 'daily',
+      connessaDal:  conn.connectedAt,
+      importaDal:   conn.importOnlyAfter,
     }
   });
 };

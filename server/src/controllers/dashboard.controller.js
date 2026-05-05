@@ -8,14 +8,14 @@ exports.dashboardCliente = catchAsync(async (req, res) => {
 
   const [totaleCorrispettivi, totaleFatture, totaleCosti, andamentoMensile, breakdownMetodi, breakdownCosti, scadenzeVersamenti, versamentiScaduti, fattureScadute] = await Promise.all([
     Corrispettivo.totaleAnno(userId, anno),
-    Fattura.totaleAnno(userId, anno),
+    Fattura.totaleAnno({ clienteId: userId }, anno),
     Costo.totaleAnno(userId, anno),
     Corrispettivo.andamentoMensile(userId, anno),
     Corrispettivo.breakdownMetodi(userId, anno),
     Costo.breakdownCategorie(userId, anno),
     Versamento.prossimeScadenze(userId, 60),
     Versamento.scaduti(userId),
-    Fattura.fattureScadute(userId)
+    Fattura.fattureScadute({ clienteId: userId }, 30)
   ]);
 
   const user = await User.findById(userId);

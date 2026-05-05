@@ -20,27 +20,37 @@ const FatturaSchema = new mongoose.Schema({
 FatturaSchema.index({ clienteId: 1, 'datiParsati.data': -1 });
 FatturaSchema.index({ consulenteId: 1, 'datiParsati.data': -1 });
 
-// Totale fatture accettate per un cliente in un anno (usato dalla dashboard)
-FatturaSchema.statics.totaleAnno = async function(clienteId, anno) {
+// Totale fatture accettate per un anno. filter: { clienteId } oppure { consulenteId }
+FatturaSchema.statics.totaleAnno = async function(filter, anno) {
+  const match = { stato: 'accettata', ...buildObjIdFilter(filter) };
+  match['datiParsati.data'] = { $gte: new Date(anno, 0, 1), $lt: new Date(anno + 1, 0, 1) };
+
   const result = await this.aggregate([
-    {
-      $match: {
-        clienteId: new mongoose.Types.ObjectId(clienteId),
-        stato: 'accettata',
-        'datiParsati.data': {
-          $gte: new Date(anno, 0, 1),
-          $lt:  new Date(anno + 1, 0, 1),
-        },
-      },
-    },
+    { $match: match },
     { $group: { _id: null, totale: { $sum: '$datiParsati.totale' }, count: { $sum: 1 } } },
   ]);
   return result[0] || { totale: 0, count: 0 };
 };
 
-// Fatture passive non hanno scadenza — restituisce array vuoto per compatibilità dashboard
-FatturaSchema.statics.fattureScadute = async function() {
-  return [];
+// Fatture ricevute ma non ancora elaborate da più di `giorni` giorni.
+// filter: { clienteId } oppure { consulenteId }
+FatturaSchema.statics.fattureScadute = async function(filter, giorni = 30) {
+  const soglia = new Date();
+  soglia.setDate(soglia.getDate() - giorni);
+
+  return this.find({
+    ...buildObjIdFilter(filter),
+    stato: 'ricevuta',
+    createdAt: { $lt: soglia },
+  }).sort({ createdAt: 1 });
 };
+
+function buildObjIdFilter(filter) {
+  const out = {};
+  for (const [k, v] of Object.entries(filter)) {
+    out[k] = v instanceof mongoose.Types.ObjectId ? v : new mongoose.Types.ObjectId(String(v));
+  }
+  return out;
+}
 
 module.exports = mongoose.model('Fattura', FatturaSchema);
